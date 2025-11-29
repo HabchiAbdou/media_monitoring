@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ source_type.name }} mentions | Media Monitoring{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-text">
+            <p class="eyebrow">Mentions</p>
+            <h1>{{ source_type.name }} sources</h1>
+            <p class="lede">All mentions captured from this source type.</p>
+        </div>
+        <div class="hero-icon" aria-hidden="true">
+            <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Stream</p>
+            <h2>Mentions list</h2>
+        </div>
+        <p class="panel-sub">Latest entries for this source type.</p>
+    </div>
+    <ul class="mentions-list">
+        {% for mention in mentions %}
+            <li class="mention" data-urgent="{{ mention.is_urgent|yesno:'true,false' }}">
+                <div class="mention-top">
+                    <p class="tag">{{ mention.source.name }}</p>
+                    <p class="timestamp">{{ mention.published_at|date:"Y-m-d H:i" }}</p>
+                </div>
+                <a class="mention-title" href="{{ mention.original_url }}" target="_blank" rel="noopener">
+                    {{ mention.title }}
+                </a>
+                <p class="mention-meta">
+                    {{ mention.company.name }} | Sentiment: <strong>{{ mention.get_sentiment_label_display }}</strong>
+                    {% if mention.is_urgent %}<span class="badge danger">Urgent</span>{% endif %}
+                </p>
+                {% if mention.content %}
+                    <p class="mention-preview">{{ mention.content|truncatechars:220 }}</p>
+                {% endif %}
+            </li>
+        {% empty %}
+            <li class="muted">No mentions for this source type yet.</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

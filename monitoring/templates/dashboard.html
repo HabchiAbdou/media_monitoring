@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard | Media Monitoring{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-text">
+            <p class="eyebrow">Live intelligence</p>
+            <h1>Media monitoring dashboard</h1>
+            <p class="lede">Aggregates live mentions, sources, and urgent alerts.</p>
+        </div>
+        <div class="hero-icon" aria-hidden="true">
+            <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
+        </div>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <div class="stat-card">
+        <p class="stat-label">Companies</p>
+        <p class="stat-value">{{ companies_count }}</p>
+        <p class="stat-note">Tracked</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">Mentions</p>
+        <p class="stat-value">{{ mention_count }}</p>
+        <p class="stat-note">Captured</p>
+    </div>
+    <div class="stat-card urgent">
+        <p class="stat-label">Urgent alerts</p>
+        <p class="stat-value">{{ urgent_count }}</p>
+        <p class="stat-note">Critical items</p>
+    </div>
+</section>
+
+<section class="content-grid">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Sources</p>
+                <h2>Sources overview</h2>
+            </div>
+            <p class="panel-sub">Mentions by source type.</p>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Source type</th>
+                        <th class="text-right">Mentions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for source in source_summary %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'monitoring:mention_list' source.name %}">{{ source.name }}</a>
+                            </td>
+                            <td class="text-right">{{ source.mention_count }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="2" class="muted">No sources yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Activity</p>
+                <h2>Latest mentions</h2>
+            </div>
+            <p class="panel-sub">Newest coverage across your feeds.</p>
+        </div>
+        <ul class="mentions-list">
+            {% for mention in latest_mentions %}
+                <li class="mention" data-urgent="{{ mention.is_urgent|yesno:'true,false' }}">
+                    <div class="mention-top">
+                        <p class="tag">{{ mention.source.type.name }}</p>
+                        <p class="timestamp">{{ mention.published_at|date:"Y-m-d H:i" }}</p>
+                    </div>
+                    <a class="mention-title" href="{{ mention.original_url }}" target="_blank" rel="noopener">
+                        {{ mention.title }}
+                    </a>
+                    <p class="mention-meta">
+                        {{ mention.company.name }} | {{ mention.source.name }} |
+                        Sentiment: <strong>{{ mention.get_sentiment_label_display }}</strong>
+                        {% if mention.is_urgent %}<span class="badge danger">Urgent</span>{% endif %}
+                    </p>
+                </li>
+            {% empty %}
+                <li class="muted">No mentions have been added yet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+{% endblock %}

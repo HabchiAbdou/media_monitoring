@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Login | Media Monitoring{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <section class="auth-card">
+        <div class="auth-logo">
+            <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
+        </div>
+        <h1>Media Monitor</h1>
+        <h2>Sign in</h2>
+        <p class="muted">Access your monitoring dashboard and alerts.</p>
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <label>
+                Username
+                {{ form.username }}
+            </label>
+            <label>
+                Password
+                {{ form.password }}
+            </label>
+
+            <button type="submit" class="btn primary full">Log in</button>
+            <p class="muted" style="text-align:center; margin:10px 0 0 0;">
+                <a href="#" class="muted">Forgot password?</a>
+            </p>
+        </form>
+    </section>
+</div>
+{% endblock %}

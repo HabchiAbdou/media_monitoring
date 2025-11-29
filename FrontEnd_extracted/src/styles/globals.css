@@ -1,0 +1,164 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  
+  /* Media Monitor Color System */
+  --color-bg: #F9FAFB;
+  --color-text-main: #111827;
+  --color-text-secondary: #6B7280;
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-border: #E5E7EB;
+  --color-urgent: #DC2626;
+  --color-urgent-light: #FEF2F2;
+  --color-positive: #16A34A;
+  --color-neutral-badge: #E5E7EB;
+  --color-white: #ffffff;
+  --color-hover-bg: #F3F4F6;
+  
+  /* Source type colors */
+  --color-press: #2563EB;
+  --color-social: #9333EA;
+  --color-youtube: #DC2626;
+  
+  /* Sentiment colors */
+  --color-sentiment-positive: #16A34A;
+  --color-sentiment-negative: #DC2626;
+  --color-sentiment-neutral: #6B7280;
+  
+  /* Alert colors */
+  --color-alert-info: #2563EB;
+  --color-alert-info-bg: #EFF6FF;
+  --color-alert-success: #16A34A;
+  --color-alert-success-bg: #F0FDF4;
+  --color-alert-error: #DC2626;
+  --color-alert-error-bg: #FEF2F2;
+  
+  /* Legacy variables for compatibility */
+  --background: #F9FAFB;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary: #2563EB;
+  --primary-foreground: #ffffff;
+  --secondary: #F3F4F6;
+  --secondary-foreground: #111827;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  --accent: #F3F4F6;
+  --accent-foreground: #111827;
+  --destructive: #DC2626;
+  --destructive-foreground: #ffffff;
+  --border: #E5E7EB;
+  --input: transparent;
+  --input-background: #ffffff;
+  --switch-background: #E5E7EB;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-normal: 400;
+  --ring: #2563EB;
+  --radius: 0.625rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-[var(--color-bg)] text-[var(--color-text-main)];
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
+    h1 {
+      font-size: 1.75rem; /* 28px */
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.3;
+    }
+
+    h2 {
+      font-size: 1.25rem; /* 20px */
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.4;
+    }
+
+    h3 {
+      font-size: 1rem; /* 16px */
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: 0.875rem; /* 14px */
+      font-weight: var(--font-weight-semibold);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: 0.875rem; /* 14px */
+      font-weight: var(--font-weight-normal);
+      line-height: 1.6;
+    }
+
+    label {
+      font-size: 0.875rem; /* 14px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: 0.875rem; /* 14px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: 0.875rem; /* 14px */
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}

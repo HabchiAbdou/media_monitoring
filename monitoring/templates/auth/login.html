@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
+{% load i18n_fr %}
 
-{% block title %}Login | Media Monitoring{% endblock %}
+{% block title %}{{ "Login | Media Monitoring"|t }}{% endblock %}
 
 {% block content %}
 <div class="auth-wrapper">
@@ -10,8 +11,8 @@
             <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
         </div>
         <h1>Media Monitor</h1>
-        <h2>Sign in</h2>
-        <p class="muted">Access your monitoring dashboard and alerts.</p>
+        <h2>{{ "Sign in"|t }}</h2>
+        <p class="muted">{{ "Access your monitoring dashboard and alerts."|t }}</p>
 
         <form method="post" class="auth-form">
             {% csrf_token %}
@@ -24,17 +25,17 @@
             {% endif %}
 
             <label>
-                Username
+                {{ "Username"|t }}
                 {{ form.username }}
             </label>
             <label>
-                Password
+                {{ "Password"|t }}
                 {{ form.password }}
             </label>
 
-            <button type="submit" class="btn primary full">Log in</button>
+            <button type="submit" class="btn primary full">{{ "Log in"|t }}</button>
             <p class="muted" style="text-align:center; margin:10px 0 0 0;">
-                <a href="#" class="muted">Forgot password?</a>
+                <a href="#" class="muted">{{ "Forgot password?"|t }}</a>
             </p>
         </form>
     </section>

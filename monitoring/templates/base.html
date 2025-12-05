@@ -1,6 +1,7 @@
 {% load static %}
+{% load i18n_fr %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,10 +25,10 @@
             </button>
 
             <nav class="nav" id="primary-nav">
-                <a href="{% url 'monitoring:dashboard' %}" class="{% if request.path == '/' %}active{% endif %}">Dashboard</a>
-                <a href="{% url 'monitoring:report' %}" class="{% if request.path == '/report/' %}active{% endif %}">Reports</a>
+                <a href="{% url 'monitoring:dashboard' %}" class="{% if request.path == '/' %}active{% endif %}">{{ "Dashboard"|t }}</a>
+                <a href="{% url 'monitoring:report' %}" class="{% if request.path == '/report/' %}active{% endif %}">{{ "Reports"|t }}</a>
                 {% if request.user.is_superuser %}
-                    <a href="{% url 'admin:index' %}">Admin</a>
+                    <a href="{% url 'monitoring:admin_users' %}">{{ "Admin"|t }}</a>
                 {% endif %}
             </nav>
 
@@ -39,16 +40,22 @@
                     </div>
                     <form method="post" action="{% url 'logout' %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn ghost">Logout</button>
+                        <button type="submit" class="btn ghost">{{ "Logout"|t }}</button>
                     </form>
                 {% else %}
-                    <a class="btn primary" href="{% url 'login' %}">Login</a>
+                    <a class="btn primary" href="{% url 'login' %}">{{ "Login"|t }}</a>
                 {% endif %}
             </div>
         </div>
     </header>
 
     <main class="page container">
+        {% if urgent_count %}
+            <div class="banner success">
+                <span aria-hidden="true">✅</span>
+                <p>{% t "Welcome back! You have {count} new urgent alerts that require attention." count=urgent_count %}</p>
+            </div>
+        {% endif %}
         {% if messages %}
             <div class="messages">
                 {% for message in messages %}

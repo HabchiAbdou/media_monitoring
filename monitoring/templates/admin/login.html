@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Administration | Connexion{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <section class="auth-card">
+        <div class="auth-logo">
+            <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
+        </div>
+        <h1>Administration</h1>
+        <h2>Connexion administrateur</h2>
+        <p class="muted">Accès réservé aux superutilisateurs.</p>
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            <label>
+                Nom d'utilisateur
+                <input type="text" name="username" required autofocus>
+            </label>
+            <label>
+                Mot de passe
+                <input type="password" name="password" required>
+            </label>
+            <button type="submit" class="btn primary full">Se connecter</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

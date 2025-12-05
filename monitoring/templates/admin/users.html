@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Administration | Utilisateurs{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-text">
+            <p class="eyebrow">Administration</p>
+            <h1>Gestion des utilisateurs</h1>
+            <p class="lede">Créer et administrer les comptes membres. Accès réservé aux superutilisateurs.</p>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Nouveau membre</p>
+            <h2>Créer un utilisateur</h2>
+        </div>
+        <p class="panel-sub">Les membres peuvent se connecter via l'interface principale.</p>
+    </div>
+    <form method="post" class="auth-form" style="max-width: 420px;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_user">
+        <label>Nom d'utilisateur
+            <input type="text" name="username" required>
+        </label>
+        <label>Mot de passe
+            <input type="password" name="password" required>
+        </label>
+        <button type="submit" class="btn primary">Créer un utilisateur</button>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Membres</p>
+            <h2>Liste des utilisateurs</h2>
+        </div>
+        <p class="panel-sub">Activation, suppression et réinitialisation de mot de passe.</p>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Utilisateur</th>
+                    <th>Rôle</th>
+                    <th>Statut</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                    <tr>
+                        <td>{{ member.username }}</td>
+                        <td>{% if member.is_superuser %}Superutilisateur{% else %}Membre{% endif %}</td>
+                        <td>
+                            {% if member.is_active %}
+                                <span class="badge">Actif</span>
+                            {% else %}
+                                <span class="badge danger">Désactivé</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ member.id }}">
+                                <input type="hidden" name="action" value="reset_password">
+                                <input type="password" name="password" placeholder="Nouveau mot de passe" style="width:160px; padding:6px;" {% if member.is_superuser %}disabled{% endif %}>
+                                <button class="btn secondary" type="submit" {% if member.is_superuser %}disabled{% endif %}>Réinitialiser</button>
+                            </form>
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ member.id }}">
+                                {% if member.is_active %}
+                                    <input type="hidden" name="action" value="disable_user">
+                                    <button class="btn dark" type="submit">Désactiver</button>
+                                {% else %}
+                                    <input type="hidden" name="action" value="enable_user">
+                                    <button class="btn dark" type="submit">Activer</button>
+                                {% endif %}
+                            </form>
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="user_id" value="{{ member.id }}">
+                                <input type="hidden" name="action" value="delete_user">
+                                {% if member.id == request.user.id or member.is_superuser %}
+                                    <button class="btn danger-delete-btn admin-users-delete-btn" data-testid="admin-delete-user" type="button" disabled>Supprimer</button>
+                                {% else %}
+                                    <button class="btn danger-delete-btn admin-users-delete-btn" data-testid="admin-delete-user" type="submit" onclick="return confirm('Confirmer la suppression ?');">Supprimer</button>
+                                {% endif %}
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="muted">Aucun utilisateur.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

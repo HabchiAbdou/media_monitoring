@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
+{% load i18n_fr %}
 
-{% block title %}Dashboard | Media Monitoring{% endblock %}
+{% block title %}{{ "Dashboard"|t }} | Media Monitoring{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="hero-inner">
         <div class="hero-text">
-            <p class="eyebrow">Live intelligence</p>
-            <h1>Media monitoring dashboard</h1>
-            <p class="lede">Aggregates live mentions, sources, and urgent alerts.</p>
+            <p class="eyebrow">{{ "Live intelligence"|t }}</p>
+            <h1>{{ "Media Monitoring Dashboard"|t }}</h1>
+            <p class="lede">{{ "Aggregates live mentions, sources, and urgent alerts."|t }}</p>
         </div>
         <div class="hero-icon" aria-hidden="true">
             <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
@@ -19,19 +20,19 @@
 
 <section class="stats-grid">
     <div class="stat-card">
-        <p class="stat-label">Companies</p>
+        <p class="stat-label">{{ "Companies"|t }}</p>
         <p class="stat-value">{{ companies_count }}</p>
-        <p class="stat-note">Tracked</p>
+        <p class="stat-note">{{ "Tracked"|t }}</p>
     </div>
     <div class="stat-card">
-        <p class="stat-label">Mentions</p>
+        <p class="stat-label">{{ "Mentions"|t }}</p>
         <p class="stat-value">{{ mention_count }}</p>
-        <p class="stat-note">Captured</p>
+        <p class="stat-note">{{ "This period"|t }}</p>
     </div>
     <div class="stat-card urgent">
-        <p class="stat-label">Urgent alerts</p>
+        <p class="stat-label">{{ "Urgent alerts"|t }}</p>
         <p class="stat-value">{{ urgent_count }}</p>
-        <p class="stat-note">Critical items</p>
+        <p class="stat-note">{{ "Critical"|t }}</p>
     </div>
 </section>
 
@@ -39,17 +40,19 @@
     <div class="panel">
         <div class="panel-header">
             <div>
-                <p class="eyebrow">Sources</p>
-                <h2>Sources overview</h2>
+                <p class="eyebrow">{{ "Sources"|t }}</p>
+                <h2>{{ "Sources overview"|t }}</h2>
             </div>
-            <p class="panel-sub">Mentions by source type.</p>
+            <p class="panel-sub">{{ "Mentions by source type."|t }}</p>
         </div>
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th>Source type</th>
-                        <th class="text-right">Mentions</th>
+                        <th>{{ "Source type"|t }}</th>
+                        <th class="text-right">{{ "Sources"|t }}</th>
+                        <th class="text-right">{{ "Mentions"|t }}</th>
+                        <th class="text-right">{{ "Urgent"|t }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -58,10 +61,12 @@
                             <td>
                                 <a href="{% url 'monitoring:mention_list' source.name %}">{{ source.name }}</a>
                             </td>
+                            <td class="text-right">{{ source.source_total|default:"0" }}</td>
                             <td class="text-right">{{ source.mention_count }}</td>
+                            <td class="text-right highlight-urgent">{{ source.urgent_count|default:"0" }}</td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="2" class="muted">No sources yet.</td></tr>
+                        <tr><td colspan="4" class="muted">{{ "No sources yet."|t }}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -71,10 +76,10 @@
     <div class="panel">
         <div class="panel-header">
             <div>
-                <p class="eyebrow">Activity</p>
-                <h2>Latest mentions</h2>
+                <p class="eyebrow">{{ "Activity"|t }}</p>
+                <h2>{{ "Latest mentions"|t }}</h2>
             </div>
-            <p class="panel-sub">Newest coverage across your feeds.</p>
+            <p class="panel-sub">{{ "Newest coverage across your feeds."|t }}</p>
         </div>
         <ul class="mentions-list">
             {% for mention in latest_mentions %}
@@ -88,12 +93,12 @@
                     </a>
                     <p class="mention-meta">
                         {{ mention.company.name }} | {{ mention.source.name }} |
-                        Sentiment: <strong>{{ mention.get_sentiment_label_display }}</strong>
-                        {% if mention.is_urgent %}<span class="badge danger">Urgent</span>{% endif %}
+                        {{ "Sentiment"|t }}: <strong>{{ mention.get_sentiment_label_display }}</strong>
+                        {% if mention.is_urgent %}<span class="badge danger">{{ "Urgent"|t }}</span>{% endif %}
                     </p>
                 </li>
             {% empty %}
-                <li class="muted">No mentions have been added yet.</li>
+                <li class="muted">{{ "No mentions have been added yet."|t }}</li>
             {% endfor %}
         </ul>
     </div>

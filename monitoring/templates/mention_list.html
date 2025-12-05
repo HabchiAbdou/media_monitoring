@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% load static %}
+{% load i18n_fr %}
 
-{% block title %}{{ source_type.name }} mentions | Media Monitoring{% endblock %}
+{% block title %}{{ source_type.name }} {{ "Mentions heading"|t }} | Media Monitoring{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="hero-inner">
         <div class="hero-text">
-            <p class="eyebrow">Mentions</p>
-            <h1>{{ source_type.name }} sources</h1>
-            <p class="lede">All mentions captured from this source type.</p>
+            <p class="eyebrow">{{ "Mentions heading"|t }}</p>
+            <h1>{{ source_type.name }} {{ "Sources"|t|lower }}</h1>
+            <p class="lede">{{ "All mentions captured from this source type."|t }}</p>
         </div>
         <div class="hero-icon" aria-hidden="true">
             <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
@@ -20,10 +21,10 @@
 <section class="panel">
     <div class="panel-header">
         <div>
-            <p class="eyebrow">Stream</p>
-            <h2>Mentions list</h2>
+            <p class="eyebrow">{{ "Stream"|t }}</p>
+            <h2>{{ "Mentions list"|t }}</h2>
         </div>
-        <p class="panel-sub">Latest entries for this source type.</p>
+        <p class="panel-sub">{{ "Latest entries for this source type."|t }}</p>
     </div>
     <ul class="mentions-list">
         {% for mention in mentions %}
@@ -36,15 +37,15 @@
                     {{ mention.title }}
                 </a>
                 <p class="mention-meta">
-                    {{ mention.company.name }} | Sentiment: <strong>{{ mention.get_sentiment_label_display }}</strong>
-                    {% if mention.is_urgent %}<span class="badge danger">Urgent</span>{% endif %}
+                    {{ mention.company.name }} | {{ "Sentiment"|t }}: <strong>{{ mention.get_sentiment_label_display }}</strong>
+                    {% if mention.is_urgent %}<span class="badge danger">{{ "Urgent"|t }}</span>{% endif %}
                 </p>
                 {% if mention.content %}
                     <p class="mention-preview">{{ mention.content|truncatechars:220 }}</p>
                 {% endif %}
             </li>
         {% empty %}
-            <li class="muted">No mentions for this source type yet.</li>
+            <li class="muted">{{ "No mentions for this source type yet."|t }}</li>
         {% endfor %}
     </ul>
 </section>

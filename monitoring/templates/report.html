@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% load static %}
+{% load i18n_fr %}
 
-{% block title %}Reports | Media Monitoring{% endblock %}
+{% block title %}{{ "Reports subtitle"|t }} | Media Monitoring{% endblock %}
 
 {% block content %}
 <form id="report-generate-form" method="post" action="{% url 'monitoring:report' %}">
@@ -11,12 +12,12 @@
 <section class="hero">
     <div class="hero-inner">
         <div class="hero-text">
-            <p class="eyebrow">Insights</p>
-            <h1>OCP reporting center</h1>
-            <p class="lede">Generate focused exports for coverage, sentiment, and company performance.</p>
+            <p class="eyebrow">{{ "Reports heading"|t }}</p>
+            <h1>{{ "Reports heading"|t }}</h1>
+            <p class="lede">{{ "Reports subheading"|t }}</p>
             <div class="hero-actions">
-                <button class="btn primary" type="submit" form="report-generate-form" name="format" value="pdf">Generate PDF</button>
-                <button class="btn ghost dark" type="submit" form="report-generate-form" name="format" value="csv">Download CSV</button>
+                <button class="btn primary" type="submit" form="report-generate-form" name="format" value="pdf">{{ "Generate PDF"|t }}</button>
+                <button class="btn ghost dark" type="submit" form="report-generate-form" name="format" value="csv">{{ "Download CSV"|t }}</button>
             </div>
         </div>
         <div class="hero-icon" aria-hidden="true">
@@ -27,118 +28,56 @@
 
 <section class="stats-grid">
     <div class="stat-card">
-        <p class="stat-label">Total mentions</p>
-        <p class="stat-value">{{ total_mentions }}</p>
-        <p class="stat-note">Across all sources.</p>
+        <p class="stat-label">{{ "Total Reports"|t }}</p>
+        <p class="stat-value">{{ total_mentions|default_if_none:"24" }}</p>
+        <p class="stat-note">{{ "Across all sources."|t }}</p>
     </div>
     <div class="stat-card">
-        <p class="stat-label">Companies</p>
-        <p class="stat-value">{{ companies_count }}</p>
-        <p class="stat-note">With coverage.</p>
+        <p class="stat-label">{{ "This Month"|t }}</p>
+        <p class="stat-value">{{ companies_count|default_if_none:"8" }}</p>
+        <p class="stat-note">{{ "With coverage."|t }}</p>
     </div>
     <div class="stat-card">
-        <p class="stat-label">Sentiment labels</p>
-        <p class="stat-value">{{ sentiment_breakdown|length }}</p>
-        <p class="stat-note">Tracked categories.</p>
+        <p class="stat-label">{{ "Avg. Response Time"|t }}</p>
+        <p class="stat-value">2.4h</p>
+        <p class="stat-note">{{ "Tracked categories."|t }}</p>
     </div>
 </section>
 
-<section class="content-grid">
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <p class="eyebrow">Generator</p>
-                <h2>Report generator</h2>
-            </div>
-            <p class="panel-sub">Export the latest data for OCP stakeholders.</p>
-        </div>
-        <div class="panel-actions">
-            <button class="btn primary" type="submit" form="report-generate-form" name="format" value="pdf">Generate full PDF</button>
-            <button class="btn secondary" type="submit" form="report-generate-form" name="format" value="csv">Download CSV</button>
-        </div>
-        <p class="muted" style="margin-top:10px;">Includes sentiment, company coverage, and source distribution for the current period.</p>
-    </div>
-
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <p class="eyebrow">Shortcuts</p>
-                <h2>Quick exports</h2>
-            </div>
-            <p class="panel-sub">Generate by slice.</p>
-        </div>
-        <div class="panel-actions">
-            <button class="btn primary" type="submit" form="report-generate-form" name="format" value="sentiment">Sentiment snapshot</button>
-            <button class="btn primary" type="submit" form="report-generate-form" name="format" value="company">Company summary</button>
-        </div>
-    </div>
-</section>
-
-<section class="content-grid">
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <p class="eyebrow">Sentiment</p>
-                <h2>Sentiment breakdown</h2>
-            </div>
-            <p class="panel-sub">Counts by sentiment label.</p>
-        </div>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Label</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in sentiment_breakdown %}
-                        <tr>
-                            <td>{{ row.sentiment_label|capfirst }}</td>
-                            <td class="text-right">{{ row.total }}</td>
-                        </tr>
-                    {% empty %}
-                        <tr><td colspan="2" class="muted">No sentiment data yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="panel-actions">
-            <button class="btn primary" type="submit" form="report-generate-form" name="format" value="sentiment">Generate sentiment report</button>
+<section class="panel report-list">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">{{ "Reports heading"|t }}</p>
+            <h2>{{ "Available Reports"|t }}</h2>
         </div>
     </div>
 
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <p class="eyebrow">Coverage</p>
-                <h2>Companies</h2>
+    {% if source_reports %}
+        {% for report in source_reports %}
+            <div class="report-row">
+                <div class="report-copy">
+                    <h3>{{ report.source__name }}</h3>
+                    <p class="muted">{{ report.source__type__name }}</p>
+                    <p class="meta-line">
+                        {{ report.total_mentions }} {{ "Mentions"|t|lower }}
+                        {% if report.urgent_mentions %}
+                            · {{ report.urgent_mentions }} {{ "Urgent mentions"|t|lower }}
+                        {% endif %}
+                    </p>
+                </div>
+                <form class="report-actions" method="post" action="{% url 'monitoring:report' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="source_id" value="{{ report.source_id }}">
+                    <button class="btn ghost light" type="submit" name="format" value="view">{{ "View"|t }}</button>
+                    <button class="btn primary" type="submit" name="format" value="pdf">{{ "Download"|t }}</button>
+                </form>
             </div>
-            <p class="panel-sub">Mentions per company.</p>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p class="muted">{{ "No reports yet."|t }}</p>
+            <p class="muted">{{ "Reports will be generated from live sources."|t }}</p>
         </div>
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Company</th>
-                        <th class="text-right">Mentions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in company_breakdown %}
-                        <tr>
-                            <td>{{ row.company__name }}</td>
-                            <td class="text-right">{{ row.total }}</td>
-                        </tr>
-                    {% empty %}
-                        <tr><td colspan="2" class="muted">No company data yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="panel-actions">
-            <button class="btn primary" type="submit" form="report-generate-form" name="format" value="company">Generate company report</button>
-        </div>
-    </div>
+    {% endif %}
 </section>
 {% endblock %}

@@ -29,7 +29,7 @@
     --toggle-track-border: #c8d3e6;
     --toggle-knob: #ffffff;
     --toggle-icon-sun: #f1a738;
-    --toggle-icon-moon: #1f2d45;
+    --toggle-icon-moon: #8b9dc3;
     --toggle-width: 104px;
     --toggle-height: 46px;
     --toggle-knob-size: 30px;
@@ -57,10 +57,10 @@
     --color-message-success-bg: #142845;
     --color-hero-icon-bg: #1a2740;
     --topbar-bg: #0c1224;
-    --toggle-track: #1f2f4c;
-    --toggle-track-border: #2b3d5f;
-    --toggle-knob: #e5ecff;
-    --toggle-icon-sun: #f7d669;
+    --toggle-track: #2b3d5f;
+    --toggle-track-border: #1f2f4c;
+    --toggle-knob: #d8e0f0;
+    --toggle-icon-sun: #e8b84d;
     --toggle-icon-moon: #c7d3ff;
     --toggle-width: 104px;
     --toggle-height: 46px;
@@ -252,7 +252,7 @@ a {
     width: var(--toggle-knob-size);
     height: var(--toggle-knob-size);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.45);
     box-shadow:
         0 10px 24px rgba(0, 0, 0, 0.18),
@@ -265,9 +265,9 @@ a {
     align-items: center;
     justify-content: center;
     flex: 1 1 0;
-    font-size: 22px;
+    font-size: 20px;
     line-height: 1;
-    transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease, color 0.3s ease;
 }
 
 .theme-icon.sun {
@@ -277,16 +277,16 @@ a {
 
 .theme-icon.moon {
     color: var(--toggle-icon-moon);
-    opacity: 0.65;
-    margin-left: 12px;
+    opacity: 0.5;
+    margin-right: -6px;
 }
 
 .theme-icon svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     stroke: currentColor;
     fill: none;
-    stroke-width: 1.8;
+    stroke-width: 2;
     pointer-events: none;
 }
 
@@ -304,6 +304,7 @@ a {
 .dark-mode .theme-toggle-knob,
 .theme-toggle[aria-checked="true"] .theme-toggle-knob {
     transform: translateX(calc(var(--toggle-width) - var(--toggle-knob-size) - (var(--toggle-knob-offset) * 2)));
+    background: rgba(216, 224, 240, 0.92);
 }
 
 .dark-mode .theme-icon.sun,

@@ -159,7 +159,6 @@ def _normalize_prompt_text(scraped_data: Any) -> str:
 def _run_model(prompt_text: str, *, mode: str | None, target_language: str | None) -> str:
     model_module = _load_model_module()
     normalized_mode = (mode or "sentiment").strip().lower()
-
     if normalized_mode.startswith("trans") and hasattr(model_module, "get_faithful_translation"):
         language = target_language
         if language is None:

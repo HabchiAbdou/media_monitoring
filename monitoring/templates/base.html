@@ -6,6 +6,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Media Monitoring{% endblock %}</title>
+    <script>
+        // Apply stored or preferred theme early to avoid flash of incorrect theme.
+        (function () {
+            const storageKey = "media-monitoring-theme";
+            let stored = null;
+            try {
+                stored = localStorage.getItem(storageKey);
+            } catch (error) {
+                stored = null;
+            }
+            const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const mode = stored || (prefersDark ? "dark" : "light");
+            if (mode === "dark") {
+                document.documentElement.classList.add("dark-mode");
+            }
+            document.documentElement.setAttribute("data-theme", mode === "dark" ? "dark" : "light");
+        })();
+    </script>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 <body>
@@ -33,6 +51,29 @@
             </nav>
 
             <div class="user-actions">
+                <button class="theme-toggle" type="button" aria-label="Toggle dark mode" aria-checked="false" tabindex="0" role="switch">
+                    <span class="theme-toggle-track">
+                        <span class="theme-icon sun" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <circle cx="12" cy="12" r="4"></circle>
+                                <line x1="12" y1="2" x2="12" y2="5"></line>
+                                <line x1="12" y1="19" x2="12" y2="22"></line>
+                                <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"></line>
+                                <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"></line>
+                                <line x1="2" y1="12" x2="5" y2="12"></line>
+                                <line x1="19" y1="12" x2="22" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"></line>
+                                <line x1="17.66" y1="6.34" x2="19.78" y2="4.22"></line>
+                            </svg>
+                        </span>
+                        <span class="theme-toggle-knob"></span>
+                        <span class="theme-icon moon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                <path d="M21 13.5A8.5 8.5 0 0 1 10.5 3a7.5 7.5 0 1 0 10.5 10.5Z"></path>
+                            </svg>
+                        </span>
+                    </span>
+                </button>
                 {% if request.user.is_authenticated %}
                     <div class="user-summary">
                         <span class="avatar-circle">{{ request.user.username|slice:":1"|upper }}</span>

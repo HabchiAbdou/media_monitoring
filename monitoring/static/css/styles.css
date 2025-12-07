@@ -7,6 +7,7 @@
 :root {
     --color-bg: #f5f7fb;
     --color-surface: #ffffff;
+    --color-surface-muted: #f1f5f9;
     --color-text-main: #0f172a;
     --color-text-secondary: #5b6178;
     --color-primary: #2f6aff;
@@ -18,8 +19,55 @@
     --color-negative: #e11d48;
     --color-neutral-badge: #e5e7eb;
     --color-hover-bg: #eef2f8;
+    --color-banner-success-bg: #e6f7eb;
+    --color-banner-success-border: #b6e3c0;
+    --color-banner-success-text: #0f5132;
+    --color-message-success-bg: #eff6ff;
+    --color-hero-icon-bg: #f2f6ff;
+    --topbar-bg: #0c1224;
+    --toggle-track: #e6ebf5;
+    --toggle-track-border: #c8d3e6;
+    --toggle-knob: #ffffff;
+    --toggle-icon-sun: #f1a738;
+    --toggle-icon-moon: #1f2d45;
+    --toggle-width: 104px;
+    --toggle-height: 46px;
+    --toggle-knob-size: 30px;
+    --toggle-padding: 14px;
+    --toggle-knob-offset: calc((var(--toggle-height) - var(--toggle-knob-size)) / 2);
     --radius: 16px;
     --shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+}
+
+.dark-mode {
+    --color-bg: #0b1220;
+    --color-surface: #111a2e;
+    --color-surface-muted: #16233a;
+    --color-text-main: #e5ecff;
+    --color-text-secondary: #a8b7d3;
+    --color-primary: #2f6aff;
+    --color-primary-hover: #2254d7;
+    --color-border: #1f2b40;
+    --color-urgent-light: #3a1a24;
+    --color-neutral-badge: #1f2940;
+    --color-hover-bg: #1b2942;
+    --color-banner-success-bg: #0f2a1a;
+    --color-banner-success-border: #1d5c39;
+    --color-banner-success-text: #c1f3d1;
+    --color-message-success-bg: #142845;
+    --color-hero-icon-bg: #1a2740;
+    --topbar-bg: #0c1224;
+    --toggle-track: #1f2f4c;
+    --toggle-track-border: #2b3d5f;
+    --toggle-knob: #e5ecff;
+    --toggle-icon-sun: #f7d669;
+    --toggle-icon-moon: #c7d3ff;
+    --toggle-width: 104px;
+    --toggle-height: 46px;
+    --toggle-knob-size: 30px;
+    --toggle-padding: 14px;
+    --toggle-knob-offset: calc((var(--toggle-height) - var(--toggle-knob-size)) / 2);
+    --shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
 }
 
 body {
@@ -28,6 +76,27 @@ body {
     background: var(--color-bg);
     color: var(--color-text-main);
     min-height: 100vh;
+    transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+html {
+    background: var(--color-bg);
+    color: var(--color-text-main);
+    transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.hero,
+.stat-card,
+.panel,
+.mention,
+.message,
+.banner,
+.auth-card,
+.empty-state,
+.table-wrapper,
+.report-row,
+.page {
+    transition: background-color 0.32s ease, color 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
 }
 
 a {
@@ -42,7 +111,7 @@ a {
 }
 
 .topbar {
-    background: #0c1224;
+    background: var(--topbar-bg);
     color: #fff;
     position: sticky;
     top: 0;
@@ -139,6 +208,116 @@ a {
     gap: 12px;
 }
 
+.theme-toggle {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--toggle-width);
+    min-height: var(--toggle-height);
+    appearance: none;
+}
+
+.theme-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 4px;
+    border-radius: 999px;
+}
+
+.theme-toggle-track {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    width: var(--toggle-width);
+    height: var(--toggle-height);
+    padding: 0 var(--toggle-padding);
+    background: var(--toggle-track);
+    border-radius: 999px;
+    border: 1px solid var(--toggle-track-border);
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 8px 18px rgba(0, 0, 0, 0.12);
+    transition: background-color 0.32s ease, border-color 0.32s ease, box-shadow 0.32s ease;
+}
+
+.theme-toggle-knob {
+    position: absolute;
+    top: var(--toggle-knob-offset);
+    left: var(--toggle-knob-offset);
+    width: var(--toggle-knob-size);
+    height: var(--toggle-knob-size);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.18),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.theme-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    font-size: 22px;
+    line-height: 1;
+    transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+.theme-icon.sun {
+    color: var(--toggle-icon-sun);
+    margin-left: -6px;
+}
+
+.theme-icon.moon {
+    color: var(--toggle-icon-moon);
+    opacity: 0.65;
+    margin-left: 12px;
+}
+
+.theme-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    pointer-events: none;
+}
+
+.theme-icon.moon svg {
+    stroke: none;
+    fill: currentColor;
+}
+
+.theme-toggle:hover .theme-toggle-track {
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+.dark-mode .theme-toggle-knob,
+.theme-toggle[aria-checked="true"] .theme-toggle-knob {
+    transform: translateX(calc(var(--toggle-width) - var(--toggle-knob-size) - (var(--toggle-knob-offset) * 2)));
+}
+
+.dark-mode .theme-icon.sun,
+.theme-toggle[aria-checked="true"] .theme-icon.sun {
+    opacity: 0.55;
+    transform: translateX(-2px);
+}
+
+.dark-mode .theme-icon.moon,
+.theme-toggle[aria-checked="true"] .theme-icon.moon {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
 .user-summary {
     display: inline-flex;
     align-items: center;
@@ -192,7 +371,7 @@ a {
 .empty-state {
     padding: 18px;
     border-radius: 14px;
-    background: #f1f5f9;
+    background: var(--color-surface-muted);
     border: 1px dashed var(--color-border);
     text-align: left;
 }
@@ -205,14 +384,14 @@ a {
 }
 
 .btn.ghost.dark {
-    background: #f7f8fb;
+    background: var(--color-surface);
     border-color: var(--color-border);
     color: var(--color-text-main);
 }
 
 .btn.ghost.light {
-    background: #f1f4fb;
-    border-color: #dce3f2;
+    background: var(--color-surface-muted);
+    border-color: var(--color-border);
     color: var(--color-text-main);
 }
 
@@ -227,9 +406,9 @@ a {
 }
 
 .btn.danger-delete-btn {
-    background: #ffffff;
+    background: var(--color-surface);
     border: 1px solid #fca5a5;
-    color: #111827;
+    color: var(--color-text-main);
     border-radius: 18px;
     padding: 10px 22px;
     min-height: 44px;
@@ -241,12 +420,12 @@ a {
 }
 
 .btn.danger-delete-btn:hover {
-    background: rgba(239, 68, 68, 0.05);
+    background: var(--color-urgent-light);
     border-color: #f87171;
     box-shadow:
         0 0 0 1px rgba(239, 68, 68, 0.28),
         0 12px 34px rgba(239, 68, 68, 0.16);
-    color: #111827;
+    color: var(--color-text-main);
 }
 
 .btn.danger-delete-btn:active {
@@ -265,12 +444,12 @@ a {
     opacity: 0.55;
     box-shadow: none;
     cursor: not-allowed;
-    background: #ffffff;
+    background: var(--color-surface);
     border-color: #fddede;
 }
 
 .btn.secondary {
-    background: #fff;
+    background: var(--color-surface);
     color: var(--color-text-main);
     border-color: var(--color-border);
 }
@@ -280,7 +459,7 @@ a {
     opacity: 0.55;
     cursor: not-allowed;
     box-shadow: none;
-    background: #f3f4f6;
+    background: var(--color-surface-muted);
     border-color: var(--color-border);
     color: var(--color-text-secondary);
 }
@@ -334,7 +513,7 @@ a {
     width: 64px;
     height: 64px;
     border-radius: 14px;
-    background: #f2f6ff;
+    background: var(--color-hero-icon-bg);
     border: 1px solid var(--color-border);
     display: grid;
     place-items: center;
@@ -562,7 +741,7 @@ tbody tr:hover {
     padding: 10px 12px;
     border-radius: 12px;
     border: 1px solid var(--color-border);
-    background: #fff;
+    background: var(--color-surface);
     box-shadow: var(--shadow);
 }
 
@@ -575,7 +754,7 @@ tbody tr:hover {
 .message.success {
     border-color: rgba(37, 99, 235, 0.35);
     color: var(--color-primary);
-    background: #eff6ff;
+    background: var(--color-message-success-bg);
 }
 
 .banner {
@@ -590,9 +769,9 @@ tbody tr:hover {
 }
 
 .banner.success {
-    background: #e6f7eb;
-    border: 1px solid #b6e3c0;
-    color: #0f5132;
+    background: var(--color-banner-success-bg);
+    border: 1px solid var(--color-banner-success-border);
+    color: var(--color-banner-success-text);
 }
 
 .report-list .report-row {
@@ -642,8 +821,8 @@ tbody tr:hover {
 }
 
 .btn.ghost.light {
-    background: #f1f4fb;
-    border-color: #dce3f2;
+    background: var(--color-surface-muted);
+    border-color: var(--color-border);
     color: var(--color-text-main);
 }
 
@@ -657,7 +836,7 @@ tbody tr:hover {
 
 .auth-card {
     width: min(440px, 100%);
-    background: #fff;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: 16px;
     padding: 24px;
@@ -677,7 +856,7 @@ tbody tr:hover {
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    background: #fff;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     display: grid;
     place-items: center;
@@ -698,7 +877,7 @@ tbody tr:hover {
     padding: 11px 12px;
     border-radius: 12px;
     border: 1px solid var(--color-border);
-    background: #fff;
+    background: var(--color-surface);
     color: var(--color-text-main);
     margin-top: 6px;
     font-size: 15px;
@@ -774,14 +953,14 @@ tbody tr:hover {
 .admin-users-delete-btn {
     border: 1px solid #fca5a5 !important;
     border-radius: 18px !important;
-    background: #ffffff !important;
+    background: var(--color-surface) !important;
     box-shadow:
         0 0 0 1px rgba(239, 68, 68, 0.20) !important,
         0 10px 30px rgba(239, 68, 68, 0.12) !important;
 }
 
 .admin-users-delete-btn:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.05) !important;
+    background: var(--color-urgent-light) !important;
     box-shadow:
         0 0 0 1px rgba(239, 68, 68, 0.28) !important,
         0 12px 34px rgba(239, 68, 68, 0.16) !important;
@@ -796,6 +975,6 @@ tbody tr:hover {
     opacity: 0.55 !important;
     box-shadow: none !important;
     cursor: not-allowed !important;
-    background: #ffffff !important;
+    background: var(--color-surface) !important;
     border-color: #fddede !important;
 }

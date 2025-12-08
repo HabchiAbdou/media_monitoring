@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from functools import wraps
 
@@ -12,7 +13,10 @@ from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .models import Company, Mention, SourceType
+from .models import Company, Mention, SourceType, ScrapeTarget
+from .services.ingestion import ingest_latest_articles
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_mention(mention):
@@ -77,12 +81,15 @@ def dashboard(request):
         .order_by("-mention_count")
     )
 
+    last_run = Mention.objects.order_by("-created_at").first()
+
     context = {
         "companies_count": companies_count,
         "mention_count": mention_count,
         "urgent_count": urgent_count,
         "latest_mentions": latest_mentions,
         "source_summary": source_summary,
+        "last_run_at": last_run.created_at if last_run else None,
     }
     return render(request, "dashboard.html", context)
 
@@ -194,6 +201,40 @@ def admin_users(request):
     User = get_user_model()
 
     if request.method == "POST":
+        # Handle scrape targets management
+        if request.POST.get("target_action"):
+            action = request.POST.get("target_action")
+            target_id = request.POST.get("target_id")
+            label = request.POST.get("label", "").strip()
+            url = request.POST.get("url", "").strip()
+            is_active = request.POST.get("is_active") == "on"
+
+            if action == "create_target":
+                if not url:
+                    messages.error(request, "URL requise.")
+                else:
+                    ScrapeTarget.objects.get_or_create(
+                        url=url,
+                        defaults={"label": label, "is_active": is_active},
+                    )
+                    messages.success(request, "Source ajoutée.")
+            elif action in {"toggle_target", "delete_target"} and target_id:
+                try:
+                    target = ScrapeTarget.objects.get(id=target_id)
+                except ScrapeTarget.DoesNotExist:
+                    messages.error(request, "Source introuvable.")
+                    return redirect("monitoring:admin_users")
+
+                if action == "delete_target":
+                    target.delete()
+                    messages.success(request, "Source supprimée.")
+                else:
+                    target.is_active = not target.is_active
+                    target.save(update_fields=["is_active"])
+                    messages.success(request, "Source mise à jour.")
+
+            return redirect("monitoring:admin_users")
+
         action = request.POST.get("action")
         target_id = request.POST.get("user_id")
         username = request.POST.get("username", "").strip()
@@ -258,11 +299,62 @@ def admin_users(request):
         .order_by("username")
         .values("id", "username", "is_active", "is_superuser", "date_joined")
     )
+    targets = ScrapeTarget.objects.all().order_by("-created_at")
     return render(
         request,
         "admin/users.html",
         {
             "members": members,
+            "targets": targets,
+        },
+    )
+
+
+@admin_required
+@require_http_methods(["GET", "POST"])
+def admin_scrape_targets(request):
+    if request.method == "POST":
+        action = request.POST.get("action")
+        target_id = request.POST.get("target_id")
+        label = request.POST.get("label", "").strip()
+        url = request.POST.get("url", "").strip()
+        is_active = request.POST.get("is_active") == "on"
+
+        if action == "create":
+            if not url:
+                messages.error(request, "URL requise.")
+            else:
+                ScrapeTarget.objects.get_or_create(
+                    url=url,
+                    defaults={"label": label, "is_active": is_active},
+                )
+                messages.success(request, "Cible ajoutée.")
+        elif action in {"update", "delete"} and target_id:
+            try:
+                target = ScrapeTarget.objects.get(id=target_id)
+            except ScrapeTarget.DoesNotExist:
+                messages.error(request, "Cible introuvable.")
+                return redirect("monitoring:admin_scrape_targets")
+
+            if action == "delete":
+                target.delete()
+                messages.success(request, "Cible supprimée.")
+            else:
+                if url:
+                    target.url = url
+                target.label = label
+                target.is_active = is_active
+                target.save()
+                messages.success(request, "Cible mise à jour.")
+
+        return redirect("monitoring:admin_scrape_targets")
+
+    targets = ScrapeTarget.objects.all().order_by("-created_at")
+    return render(
+        request,
+        "admin/scrape_targets.html",
+        {
+            "targets": targets,
         },
     )
 
@@ -319,6 +411,23 @@ def api_auth_logout(request):
 def api_admin_logout(request):
     auth_logout(request)
     return JsonResponse({"success": True})
+
+
+@csrf_exempt
+@login_required
+@require_POST
+def run_monitor(request):
+    """
+    Trigger website scraping + LLM pipeline on demand (no auto-run).
+    """
+    try:
+        active_targets = ScrapeTarget.objects.filter(is_active=True).values_list("url", flat=True)
+        urls = [u for u in active_targets if u]
+        result = ingest_latest_articles(force=True, max_articles_per_site=3, urls=urls)
+        return JsonResponse({"status": "ok", "result": result, "processed": result.get("total_seen", 0)})
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Failed to run monitor")
+        return JsonResponse({"status": "error", "error": str(exc)}, status=500)
 
 
 @csrf_exempt

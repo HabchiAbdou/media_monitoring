@@ -29,12 +29,12 @@
 <section class="stats-grid">
     <div class="stat-card">
         <p class="stat-label">{{ "Total Reports"|t }}</p>
-        <p class="stat-value">{{ total_mentions|default_if_none:"24" }}</p>
+        <p class="stat-value">{{ total_mentions|default_if_none:"0" }}</p>
         <p class="stat-note">{{ "Across all sources."|t }}</p>
     </div>
     <div class="stat-card">
         <p class="stat-label">{{ "This Month"|t }}</p>
-        <p class="stat-value">{{ companies_count|default_if_none:"8" }}</p>
+        <p class="stat-value">{{ total_mentions|default_if_none:"0" }}</p>
         <p class="stat-note">{{ "With coverage."|t }}</p>
     </div>
     <div class="stat-card">

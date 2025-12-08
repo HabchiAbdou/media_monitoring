@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Company, SourceType, Source, Mention
+from .models import Company, SourceType, Source, Mention, ScrapeTarget
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
@@ -19,3 +19,10 @@ class MentionAdmin(admin.ModelAdmin):
     list_display = ("title", "company", "source", "sentiment_label", "is_urgent", "published_at")
     list_filter = ("company", "source__type", "sentiment_label", "is_urgent")
     search_fields = ("title", "content", "original_url")
+
+
+@admin.register(ScrapeTarget)
+class ScrapeTargetAdmin(admin.ModelAdmin):
+    list_display = ("label", "url", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("label", "url")

@@ -45,3 +45,16 @@ class Mention(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class ScrapeTarget(models.Model):
+    label = models.CharField(max_length=255, blank=True, help_text="Optional friendly name")
+    url = models.URLField(unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.label or self.url

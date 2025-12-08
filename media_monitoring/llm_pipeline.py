@@ -88,7 +88,14 @@ def _filter_kwargs(func: Callable[..., Any], kwargs: Mapping[str, Any]) -> dict[
 
 
 def _run_scraper(scraper_kwargs: Mapping[str, Any]) -> Any:
-    scrapping_module = _load_scrapping_module()
+    """
+    Placeholder scraper runner. The previous scraping module has been removed.
+    Returning an empty dict keeps downstream logic safe without failing imports.
+    """
+    try:
+        scrapping_module = _load_scrapping_module()
+    except Exception:
+        return {}
 
     for name in _SCRAPER_FUNCTION_CANDIDATES:
         scraper_fn = getattr(scrapping_module, name, None)
@@ -103,7 +110,8 @@ def _run_scraper(scraper_kwargs: Mapping[str, Any]) -> Any:
             if callable(method):
                 return method(**_filter_kwargs(method, scraper_kwargs))
 
-    raise RuntimeError("No callable scraper found in scrapping.py")
+    # Nothing available; return empty payload instead of error.
+    return {}
 
 
 def _extract_text_from_mapping(data: Mapping[str, Any]) -> str:
@@ -178,12 +186,13 @@ def _run_model(prompt_text: str, *, mode: str | None, target_language: str | Non
     raise RuntimeError("No suitable inference function found in ModelDeTraductionFinal.py")
 
 
-def run_llm_pipeline(*, url: str | None = None, **kwargs) -> dict:
+def run_llm_pipeline(*, url: str | None = None, scraped_data: Any | None = None, **kwargs) -> dict:
     """
     Run the scraper, build a prompt, and invoke the LLM model.
 
     Parameters:
         url: Optional URL forwarded to the scraper if supported.
+        scraped_data: Optional pre-fetched data (skips scraping when provided).
         **kwargs: Additional keyword arguments forwarded to the scraper. You may
                   include \"mode\" (\"sentiment\" or \"translation\") and
                   \"target_language\" (for translation mode).
@@ -201,11 +210,13 @@ def run_llm_pipeline(*, url: str | None = None, **kwargs) -> dict:
         mode = scraper_kwargs.pop("mode", "sentiment")
         target_language = scraper_kwargs.pop("target_language", None)
 
-        if url is not None:
-            scraper_kwargs.setdefault("url", url)
+        data_for_prompt = scraped_data
+        if data_for_prompt is None:
+            if url is not None:
+                scraper_kwargs.setdefault("url", url)
+            data_for_prompt = _run_scraper(scraper_kwargs)
 
-        scraped_data = _run_scraper(scraper_kwargs)
-        prompt_text = _normalize_prompt_text(scraped_data)
+        prompt_text = _normalize_prompt_text(data_for_prompt)
         model_output = _run_model(prompt_text, mode=mode, target_language=target_language)
 
         return {

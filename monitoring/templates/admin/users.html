@@ -103,4 +103,86 @@
         </table>
     </div>
 </section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Sources</p>
+            <h2>Sites à surveiller</h2>
+        </div>
+        <p class="panel-sub">Ajouter, activer/désactiver ou supprimer des URLs à scraper.</p>
+    </div>
+
+    <form method="post" class="auth-form" style="max-width: 520px;">
+        {% csrf_token %}
+        <input type="hidden" name="target_action" value="create_target">
+        <label>Label (optionnel)
+            <input type="text" name="label" placeholder="Nom lisible">
+        </label>
+        <label>URL
+            <input type="url" name="url" placeholder="https://example.com" required>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" name="is_active" checked>
+            Activer
+        </label>
+        <button type="submit" class="btn primary">Ajouter une source</button>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Sources</p>
+            <h2>Liste des URLs</h2>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Label</th>
+                    <th>URL</th>
+                    <th>Statut</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for target in targets %}
+                    <tr>
+                        <td>{{ target.label|default:"—" }}</td>
+                        <td><a href="{{ target.url }}" target="_blank" rel="noopener">{{ target.url }}</a></td>
+                        <td>
+                            {% if target.is_active %}
+                                <span class="badge">Actif</span>
+                            {% else %}
+                                <span class="badge danger">Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="target_action" value="toggle_target">
+                                <input type="hidden" name="target_id" value="{{ target.id }}">
+                                {% if target.is_active %}
+                                    <button class="btn dark" type="submit">Désactiver</button>
+                                {% else %}
+                                    <button class="btn dark" type="submit">Activer</button>
+                                {% endif %}
+                            </form>
+                            <form method="post" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="target_action" value="delete_target">
+                                <input type="hidden" name="target_id" value="{{ target.id }}">
+                                <button class="btn danger-delete-btn" type="submit" onclick="return confirm('Supprimer cette source ?');">Supprimer</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="muted">Aucune URL configurée.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
 {% endblock %}

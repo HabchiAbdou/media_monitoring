@@ -20,9 +20,16 @@
 
 <section class="stats-grid">
     <div class="stat-card">
-        <p class="stat-label">{{ "Companies"|t }}</p>
-        <p class="stat-value">{{ companies_count }}</p>
-        <p class="stat-note">{{ "Tracked"|t }}</p>
+        <div class="stat-card-header">
+            <p class="stat-label">{{ "Veille"|t }}</p>
+            <p class="stat-note">{{ "Lancer la veille média pour OCP"|t }}</p>
+        </div>
+        <button id="monitor-button" class="btn primary monitor-btn" type="button">
+            {{ "Lancer la veille"|t }}
+        </button>
+        <p id="monitor-status" class="monitor-status-text" style="margin-top: 10px; font-size: 12px;">
+            {% if last_run_at %}{{ "Derniere mise a jour"|t }}: {{ last_run_at|date:"Y-m-d H:i" }}{% endif %}
+        </p>
     </div>
     <div class="stat-card">
         <p class="stat-label">{{ "Mentions"|t }}</p>
@@ -56,6 +63,9 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {% if mention_count == 0 %}
+                        <tr><td colspan="4" class="muted">{{ "Aucune donnee disponible. Cliquez sur 'Monitor' pour lancer la veille."|t }}</td></tr>
+                    {% else %}
                     {% for source in source_summary %}
                         <tr>
                             <td>
@@ -68,6 +78,7 @@
                     {% empty %}
                         <tr><td colspan="4" class="muted">{{ "No sources yet."|t }}</td></tr>
                     {% endfor %}
+                    {% endif %}
                 </tbody>
             </table>
         </div>
@@ -82,6 +93,9 @@
             <p class="panel-sub">{{ "Newest coverage across your feeds."|t }}</p>
         </div>
         <ul class="mentions-list">
+            {% if mention_count == 0 %}
+                <li class="muted">{{ "Aucune donnee disponible. Cliquez sur 'Monitor' pour lancer la veille."|t }}</li>
+            {% else %}
             {% for mention in latest_mentions %}
                 <li class="mention" data-urgent="{{ mention.is_urgent|yesno:'true,false' }}">
                     <div class="mention-top">
@@ -100,6 +114,7 @@
             {% empty %}
                 <li class="muted">{{ "No mentions have been added yet."|t }}</li>
             {% endfor %}
+            {% endif %}
         </ul>
     </div>
 </section>

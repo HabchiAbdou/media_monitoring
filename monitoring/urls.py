@@ -9,6 +9,7 @@ urlpatterns = [
     path("mentions/<str:source_type_name>/", views.mention_list, name="mention_list"),
     path("api/mentions/", views.mentions_api, name="mentions_api"),
     path("api/alerts/", views.urgent_mentions_api, name="urgent_mentions_api"),
+    path("ocp-test/", views.ocp_test_page, name="ocp_test_page"),
     path("run-monitor/", views.run_monitor, name="run_monitor"),
     # Administration (superusers only)
     path("administration/login/", views.admin_login, name="admin_login"),

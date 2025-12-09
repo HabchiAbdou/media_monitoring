@@ -166,6 +166,11 @@ def urgent_mentions_api(request):
     return JsonResponse({"results": payload})
 
 
+@require_GET
+def ocp_test_page(request):
+    return render(request, "ocp_test.html")
+
+
 # ---------------------------------------------------------------------------
 # Administration views (superusers only)
 # ---------------------------------------------------------------------------

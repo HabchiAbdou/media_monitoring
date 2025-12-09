@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Page test OCP{% endblock %}
+
+{% block content %}
+<section class="page-section">
+    <style>
+        .ocp-test-article {
+            background: var(--color-surface);
+            box-shadow: var(--shadow);
+            border-radius: 16px;
+            padding: 24px;
+            direction: rtl;
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+
+        .ocp-test-article h1 {
+            margin-top: 0;
+            color: var(--color-text-main);
+        }
+
+        .ocp-test-article p,
+        .ocp-test-article li {
+            color: var(--color-text-secondary);
+        }
+
+        .ocp-test-article ul {
+            padding-right: 18px;
+        }
+    </style>
+
+    <div class="ocp-test-article" lang="ar">
+        <h1>صفحة تجريبية على OCP</h1>
+        <p>هاد الصفحة غير للتجربة باش تشوف كيفاش كيبان النص بالدارجة المغربية فالموقع.</p>
+        <p>OCP هي مجموعة مغربية كبيرة كتسهر على استخراج وتثمين الفوسفاط من خريبݣة، بنݣرير واليوسفية. المؤسسة بدات الخدمة من سنوات طويلة ودابا ولات من أهم الفاعلين فالسوق العالمي، وكتصدر الملايين ديال الأطنان لدول مختلفة.</p>
+        <p>الشركة ماشي غير مناجم، راه كتستثمر فالتكنولوجيا الخضرا باش توفّر الماء والطاقة، وكتخدم على تحويل الفوسفاط لأسمدة عالية الجودة باش الفلاحة تكون أكثر مردودية.</p>
+        <p>فالمناطق اللي فيها المناجم، OCP كتشجع التكوين والمقاولات المحلية باش السكان يستافدو من فرص الشغل والتنمية.</p>
+        <ul>
+            <li>مراكز رئيسية: خريبݣة، بنݣرير، اليوسفية.</li>
+            <li>اهتمام بالاستدامة: تحلية الما وإعادة استعمالو فالمنشآت.</li>
+            <li>دعم اجتماعي: برامج للتكوين، التعليم، ودعم المقاولات الصغيرة.</li>
+        </ul>
+        <p>إلى كنتي محتاج تعرف غير واش الخط والاتجاه خدامين مزيان، هاد المحتوى كافي باش تجرب الصفحة.</p>
+    </div>
+</section>
+{% endblock %}

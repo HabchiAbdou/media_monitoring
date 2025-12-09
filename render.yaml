@@ -3,6 +3,7 @@ services:
     name: media-monitoring
     env: python
     branch: main
+    plan: free
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt

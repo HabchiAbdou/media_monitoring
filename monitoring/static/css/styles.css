@@ -767,6 +767,14 @@ tbody tr:hover {
     margin-bottom: 18px;
     font-weight: 600;
     box-shadow: var(--shadow);
+    opacity: 1;
+    transition:
+        background-color 0.32s ease,
+        border-color 0.32s ease,
+        color 0.32s ease,
+        box-shadow 0.32s ease,
+        opacity 0.25s ease,
+        transform 0.25s ease;
 }
 
 .banner.success {
@@ -779,6 +787,11 @@ tbody tr:hover {
     background: var(--color-urgent-light);
     border: 1px solid rgba(220, 38, 38, 0.35);
     color: var(--color-urgent);
+}
+
+.banner.is-hiding {
+    opacity: 0;
+    transform: translateY(-6px);
 }
 
 .report-list .report-row {

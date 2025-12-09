@@ -107,6 +107,34 @@ def _parse_sentiment_from_structured(structured: Dict[str, Any], model_output: s
     return label, score, is_urgent, urgency_reason
 
 
+def _sanitize_display_title(candidate: str | None, fallback: str, sentiment_label: str) -> str:
+    """
+    Avoid storing system prompts or generic instructions as titles.
+    Falls back to a neutral title mentioning the sentiment.
+    """
+    markers = [
+        "output json only",
+        "need to split into segments",
+        "provide summary",
+        "analyze the",
+        "analyse the",
+        "identify sentiment per segment",
+    ]
+    def is_prompt_like(value: str | None) -> bool:
+        if not value:
+            return False
+        lower = value.lower()
+        return any(marker in lower for marker in markers)
+
+    if candidate and not is_prompt_like(candidate):
+        return candidate[:280]
+
+    if fallback and not is_prompt_like(fallback):
+        return fallback[:280]
+
+    return f"Mention detectee ({sentiment_label})"
+
+
 def _store_scrape_result(scrape_result: Dict[str, Any], company: Company) -> Tuple[Mention, bool]:
     url = scrape_result.get("url") or ""
     text = scrape_result.get("text") or ""
@@ -126,7 +154,7 @@ def _store_scrape_result(scrape_result: Dict[str, Any], company: Company) -> Tup
     # Favor real scraped content for UI display; keep LLM details in raw_metadata.
     content_body = text or structured.get("body") or structured.get("summary") or model_output or page_title
     content_body = content_body[:4000]  # keep payload light for list rendering
-    display_title = structured.get("title") or page_title or url
+    display_title = _sanitize_display_title(structured.get("title"), page_title or url, sentiment_label)
 
     mention_defaults = {
         "company": company,

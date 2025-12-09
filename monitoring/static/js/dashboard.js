@@ -60,6 +60,20 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Auto-dismiss banners flagged for timed display
+    document.querySelectorAll(".banner.auto-dismiss").forEach((banner) => {
+        const duration = parseInt(banner.dataset.dismissMs || "4000", 10);
+        const timeout = Number.isFinite(duration) ? duration : 4000;
+        const hide = () => {
+            banner.classList.add("is-hiding");
+            setTimeout(() => {
+                banner.style.display = "none";
+                banner.setAttribute("aria-hidden", "true");
+            }, 280);
+        };
+        setTimeout(hide, timeout);
+    });
+
     // Smooth scroll for internal links
     document.querySelectorAll("a[href^='#']").forEach((anchor) => {
         anchor.addEventListener("click", (e) => {

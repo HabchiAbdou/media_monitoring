@@ -93,9 +93,9 @@
     <main class="page container">
         <div id="monitor-banner" class="banner" style="display: none;"></div>
         {% if urgent_count %}
-            <div class="banner success">
-                <span aria-hidden="true">✅</span>
-                <p>{% t "Welcome back! You have {count} new urgent alerts that require attention." count=urgent_count %}</p>
+            <div class="banner error auto-dismiss" data-dismiss-ms="4000">
+                <span aria-hidden="true">!</span>
+                <p>{% t "On a trouvé {count} mention(s) qui nécessite(nt) votre attention." count=urgent_count %}</p>
             </div>
         {% endif %}
         {% if messages %}

@@ -424,7 +424,14 @@ def run_monitor(request):
         active_targets = ScrapeTarget.objects.filter(is_active=True).values_list("url", flat=True)
         urls = [u for u in active_targets if u]
         result = ingest_latest_articles(force=True, max_articles_per_site=3, urls=urls)
-        return JsonResponse({"status": "ok", "result": result, "processed": result.get("total_seen", 0)})
+        return JsonResponse(
+            {
+                "status": "ok",
+                "result": result,
+                "processed": result.get("total_seen", 0),
+                "matched": result.get("matched", 0),
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to run monitor")
         return JsonResponse({"status": "error", "error": str(exc)}, status=500)

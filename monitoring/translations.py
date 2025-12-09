@@ -38,7 +38,6 @@ TRANSLATIONS_FR = {
     "Companies": "Entreprises",
     "Tracked": "Suivies",
     "Mentions": "Mentions",
-    "This period": "Cette période",
     "Urgent alerts": "Alertes urgentes",
     "Critical": "Critique",
     "Sources overview": "Aperçu des sources",
@@ -57,6 +56,11 @@ TRANSLATIONS_FR = {
     "Latest entries for this source type.": "Dernières entrées pour ce type de source.",
     "No mentions have been added yet.": "Aucune mention n'a encore été ajoutée.",
     "No mentions for this source type yet.": "Aucune mention pour ce type de source pour le moment.",
+    "Veille": "Veille",
+    "Lancer la veille média pour OCP": "Lancer la veille média pour OCP",
+    "Derniere mise a jour": "Dernière mise à jour",
+    "Aucune donnee disponible. Cliquez sur 'Monitor' pour lancer la veille.": "Aucune donnée disponible. Cliquez sur « Monitor » pour lancer la veille.",
+    "This period": "Cette période",
 
     # Reports
     "Reports heading": "Rapports",
@@ -66,7 +70,7 @@ TRANSLATIONS_FR = {
     "Avg. Response Time": "Temps de réponse moyen",
     "Available Reports": "Rapports disponibles",
     "Weekly Media Summary": "Synthèse médiatique hebdomadaire",
-    "Comprehensive overview of all media mentions from the past week": "Vue d’ensemble complète de toutes les mentions médiatiques de la semaine passée",
+    "Comprehensive overview of all media mentions from the past week": "Vue d'ensemble complète de toutes les mentions médiatiques de la semaine passée",
     "Sentiment Analysis Report": "Rapport d'analyse de sentiment",
     "Detailed breakdown of sentiment across all tracked companies": "Détail du ressenti pour toutes les entreprises suivies",
     "Source Distribution": "Répartition des sources",
@@ -82,8 +86,8 @@ TRANSLATIONS_FR = {
     "Reports page title": "Rapports | Media Monitoring",
     "Label": "Libellé",
     "Total": "Total",
-    "No sentiment data yet.": "Aucune donnée de sentiment pour l’instant.",
-    "No company data yet.": "Aucune donnée par entreprise pour l’instant.",
+    "No sentiment data yet.": "Aucune donnée de sentiment pour l'instant.",
+    "No company data yet.": "Aucune donnée par entreprise pour l'instant.",
     "Reports subtitle": "Rapports",
 
     # Mention list

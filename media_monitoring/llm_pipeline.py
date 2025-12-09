@@ -3,7 +3,9 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import logging
+import re
 from pathlib import Path
+from textwrap import shorten
 from types import ModuleType
 from typing import Any, Callable, Iterable, Mapping
 
@@ -164,6 +166,79 @@ def _normalize_prompt_text(scraped_data: Any) -> str:
     return str(scraped_data)
 
 
+def _derive_title(prompt_text: str, model_output: str) -> str:
+    for candidate in (model_output, prompt_text):
+        if not candidate:
+            continue
+        for line in str(candidate).splitlines():
+            cleaned = line.strip()
+            if len(cleaned) >= 8:
+                return shorten(cleaned, width=180, placeholder="...")
+    return "Scraped mention"
+
+
+def _extract_summary_line(text: str) -> str:
+    if not text:
+        return ""
+    for keyword in ("resume", "résumé", "summary", "analyse generale", "analyse générale"):
+        match = re.search(rf"{keyword}\s*[:\-]\s*(.+)", text, flags=re.IGNORECASE)
+        if match:
+            return shorten(match.group(1).strip(), width=240, placeholder="...")
+    first_line = text.splitlines()[0].strip() if text.splitlines() else ""
+    return shorten(first_line, width=240, placeholder="...") if first_line else ""
+
+
+def _parse_sentiment_label(model_output: str) -> tuple[str, float | None]:
+    text = (model_output or "").lower()
+    if "negatif" in text or "negative" in text:
+        return "negative", -0.75
+    if "positif" in text or "positive" in text:
+        return "positive", 0.75
+    if "neutre" in text or "neutral" in text:
+        return "neutral", 0.0
+    return "neutral", None
+
+
+def _structure_model_output(prompt_text: str, model_output: str) -> dict[str, Any]:
+    """
+    Build a structured payload usable by the UI.
+    """
+    title = _derive_title(prompt_text, model_output)
+    summary_line = _extract_summary_line(model_output) or _extract_summary_line(prompt_text)
+    sentiment_label, sentiment_score = _parse_sentiment_label(model_output)
+    is_urgent = sentiment_label == "negative"
+
+    sections: list[dict[str, str]] = []
+    if summary_line:
+        sections.append({"title": "Résumé", "text": summary_line})
+    if model_output:
+        sections.append({"title": "Analyse", "text": str(model_output).strip()})
+    if prompt_text:
+        sections.append({"title": "Extrait source", "text": str(prompt_text).strip()[:1200]})
+
+    body_parts: list[str] = []
+    for section in sections:
+        heading = section.get("title")
+        text = section.get("text")
+        if not text:
+            continue
+        body_parts.append(f"{heading}: {text}" if heading else text)
+
+    body = "\n\n".join(body_parts) or model_output or prompt_text
+
+    return {
+        "title": title,
+        "summary": summary_line or shorten(body, width=240, placeholder="...") if body else "",
+        "body": body,
+        "sentiment_label": sentiment_label,
+        "sentiment_score": sentiment_score,
+        "is_urgent": is_urgent,
+        "urgency_reason": "Negative sentiment detected" if is_urgent else None,
+        "sections": sections,
+        "raw_output": model_output,
+    }
+
+
 def _run_model(prompt_text: str, *, mode: str | None, target_language: str | None) -> str:
     model_module = _load_model_module()
     normalized_mode = (mode or "sentiment").strip().lower()
@@ -222,6 +297,7 @@ def run_llm_pipeline(*, url: str | None = None, scraped_data: Any | None = None,
         return {
             "input": prompt_text,
             "output": model_output,
+            "structured": _structure_model_output(prompt_text, model_output),
         }
     except Exception as exc:  # noqa: BLE001 - we want to capture all failures for logging
         logger.exception("Failed to run LLM pipeline")

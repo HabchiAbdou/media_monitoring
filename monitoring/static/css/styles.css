@@ -775,6 +775,12 @@ tbody tr:hover {
     color: var(--color-banner-success-text);
 }
 
+.banner.error {
+    background: var(--color-urgent-light);
+    border: 1px solid rgba(220, 38, 38, 0.35);
+    color: var(--color-urgent);
+}
+
 .report-list .report-row {
     display: flex;
     align-items: center;

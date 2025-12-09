@@ -22,14 +22,18 @@ import os
 import re
 import time
 from datetime import datetime
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -58,11 +62,9 @@ def fetch_html(url: str, timeout: float = 15.0) -> Optional[str]:
         headers = {"User-Agent": USER_AGENT}
         resp = requests.get(url, headers=headers, timeout=timeout)
         if resp.status_code != 200:
-
             logger.warning("Non-200 status for %s: %s", url, resp.status_code)
             return None
         resp.encoding = resp.encoding or resp.apparent_encoding or "utf-8"
-        print("rentrer")
         return resp.text
     except requests.RequestException as exc:  # network/timeout/etc.
         logger.error("Request failed for %s: %s", url, exc)
@@ -86,6 +88,15 @@ def extract_text(html: str) -> str:
     lines = [line.strip() for line in raw_text.splitlines()]
     lines = [line for line in lines if line]
     return "\n".join(lines)
+
+
+def extract_title(html: str) -> str:
+    """Return the page <title> if present."""
+    soup = BeautifulSoup(html, "html.parser")
+    title_tag = soup.find("title")
+    if not title_tag:
+        return ""
+    return title_tag.get_text(strip=True)
 
 
 def _safe_filename(url: str) -> str:
@@ -139,7 +150,15 @@ def process_url(url: str) -> dict[str, Any]:
     Full pipeline for a single URL: fetch -> extract -> save -> keyword check -> LLM hook.
     Returns a result dict with status info.
     """
-    result: dict[str, Any] = {"url": url, "status": "ok", "matched": False, "saved_path": None, "error": None}
+    result: dict[str, Any] = {
+        "url": url,
+        "status": "ok",
+        "matched": False,
+        "saved_path": None,
+        "error": None,
+        "text": "",
+        "title": "",
+    }
 
     html = fetch_html(url)
     if not html:
@@ -147,7 +166,11 @@ def process_url(url: str) -> dict[str, Any]:
         result.update({"status": "error", "error": "fetch_failed"})
         return result
 
+    page_title = extract_title(html)
     text = extract_text(html)
+    result["title"] = page_title
+    result["text"] = text
+
     if not text.strip():
         logger.warning("No visible text extracted for %s", url)
         result.update({"status": "error", "error": "empty_text"})
@@ -177,7 +200,10 @@ def process_urls(urls: Iterable[str]) -> dict[str, Any]:
         "results": [],
     }
 
-    for url in urls:
+    url_list = [u.strip() for u in urls if u and u.strip()]
+    logger.info("Starting scrape for %d URL(s)", len(url_list))
+
+    for url in url_list:
         if not url or not url.strip():
             continue
         trimmed = url.strip()

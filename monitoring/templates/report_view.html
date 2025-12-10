@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n_fr %}
+
+{% block title %}{{ "OCP Media Monitoring Report"|t }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-inner">
+        <div class="hero-text">
+            <p class="eyebrow">{{ "Reports heading"|t }}</p>
+            <h1>{{ "OCP Media Monitoring Report"|t }}</h1>
+            <p class="lede">
+                {{ "Generated"|t }} {{ report.generated_at|date:"d/m/Y H:i" }}
+                · {{ "Coverage period"|t }}:
+                {% if report.time_window.start %}{{ report.time_window.start|date:"d/m/Y" }}{% else %}—{% endif %}
+                -
+                {% if report.time_window.end %}{{ report.time_window.end|date:"d/m/Y" }}{% else %}—{% endif %}
+            </p>
+        </div>
+        <div class="hero-icon" aria-hidden="true">
+            <img src="{% static 'img/ocp-logo.png' %}" alt="OCP logo">
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">{{ "Summary"|t }}</p>
+            <h2>{{ "Global synthesis"|t }}</h2>
+        </div>
+    </div>
+    <div class="panel-body">
+        <p><strong>{{ "Executive summary"|t }}:</strong> {{ report.ai_sections.executive_summary }}</p>
+        <p><strong>{{ "Tone overview"|t }}:</strong> {{ report.ai_sections.tone_overview }}</p>
+        <p><strong>{{ "Risk overview"|t }}:</strong> {{ report.ai_sections.risk_overview }}</p>
+        <p><strong>{{ "Recommendations"|t }}:</strong> {{ report.ai_sections.recommendations }}</p>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <div class="stat-card">
+        <p class="stat-label">{{ "Total mentions"|t }}</p>
+        <p class="stat-value">{{ report.kpis.total_mentions }}</p>
+        <p class="stat-note">{{ "Across all sources."|t }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">{{ "This Month"|t }}</p>
+        <p class="stat-value">{{ report.kpis.mentions_this_month }}</p>
+        <p class="stat-note">{{ "With coverage."|t }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label">{{ "By source type"|t }}</p>
+        <p class="stat-value">{{ report.kpis.mentions_by_source_type|length }}</p>
+        <p class="stat-note">{{ "Types with mentions."|t }}</p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">{{ "KPIs"|t }}</p>
+            <h2>{{ "Breakdown"|t }}</h2>
+        </div>
+    </div>
+    <div class="panel-body">
+        <h3>{{ "Mentions by source type"|t }}</h3>
+        {% if report.kpis.mentions_by_source_type %}
+            <ul>
+                {% for label, count in report.kpis.mentions_by_source_type.items %}
+                    <li>{{ label }} : {{ count }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">{{ "No data yet."|t }}</p>
+        {% endif %}
+
+        <h3>{{ "Sentiment breakdown"|t }}</h3>
+        {% if report.kpis.sentiment_counts %}
+            <ul>
+                {% for label, count in report.kpis.sentiment_counts.items %}
+                    <li>{{ label }} : {{ count }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="muted">{{ "No data yet."|t }}</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">{{ "Mentions"|t }}</p>
+            <h2>{{ "Detailed mentions"|t }}</h2>
+        </div>
+    </div>
+    <div class="panel-body">
+        {% if report.mentions %}
+            {% for mention in report.mentions %}
+                <div class="report-row" style="align-items:flex-start;">
+                    <div class="report-copy">
+                        <h3>{{ "Mention"|t }} {{ forloop.counter }}</h3>
+                        <p class="meta-line">
+                            {{ mention.published_at|date:"d/m/Y H:i" }} · {{ mention.source_name }} ({{ mention.source_type }})
+                        </p>
+                        <p><strong>{{ "Title"|t }}:</strong> {{ mention.title }}</p>
+                        <p><strong>URL:</strong> {{ mention.url }}</p>
+                        <p><strong>{{ "Excerpt"|t }}:</strong> {{ mention.raw_excerpt }}</p>
+                        <p><strong>{{ "Detected sentiment"|t }}:</strong> {{ mention.sentiment }}</p>
+                        <p><strong>{{ "Category"|t }}:</strong> {{ mention.category }}</p>
+                        <p><strong>{{ "Auto summary"|t }}:</strong> {{ mention.ai_summary }}</p>
+                        <p><strong>{{ "Impact level"|t }}:</strong> {{ mention.ai_impact_level }}</p>
+                        <p><strong>{{ "Tone analysis"|t }}:</strong> {{ mention.ai_tone_comment }}</p>
+                        <p><strong>{{ "Recommendation"|t }}:</strong> {{ mention.ai_recommendation }}</p>
+                    </div>
+                </div>
+                <hr>
+            {% endfor %}
+        {% else %}
+            <p class="muted">{{ "No mentions available for now."|t }}</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

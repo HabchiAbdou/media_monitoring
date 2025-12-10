@@ -1,20 +1,12 @@
-import os
 from pathlib import Path
-
-import dj_database_url
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security / debugging
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
-DEBUG = os.getenv("DEBUG", "False").lower() in {"1", "true", "yes", "on"}
-allowed_hosts_env = os.getenv("ALLOWED_HOSTS")
-ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(",")] if allowed_hosts_env else ["*"]
-RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
-    CSRF_TRUSTED_ORIGINS = [f"https://{RENDER_EXTERNAL_HOSTNAME}"]
+SECRET_KEY = "dev-secret-key-change-me"
+DEBUG = True
+ALLOWED_HOSTS = ["*"]
 
 # Applications
 INSTALLED_APPS = [
@@ -29,7 +21,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -66,9 +57,6 @@ DATABASES = {
         "NAME": BASE_DIR / "db.sqlite3",
     }
 }
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    DATABASES["default"] = dj_database_url.parse(database_url, conn_max_age=600)
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -88,7 +76,6 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "monitoring" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Auth redirects
 LOGIN_URL = "login"

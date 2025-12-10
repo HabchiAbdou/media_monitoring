@@ -15,6 +15,12 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from .models import Company, Mention, SourceType, ScrapeTarget
 from .services.ingestion import ingest_latest_articles
+from .services.reporting import (
+    build_ocp_report_data,
+    get_ocp_mentions_queryset,
+    render_report_csv,
+    render_report_pdf,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,24 +100,37 @@ def dashboard(request):
     return render(request, "dashboard.html", context)
 
 
+@require_http_methods(["GET", "POST"])
 @login_required
 def report_view(request):
-    sentiment_breakdown = (
-        Mention.objects.values("sentiment_label")
-        .order_by("sentiment_label")
-        .annotate(total=Count("id"))
-    )
-    company_breakdown = (
-        Mention.objects.values("company__name")
-        .order_by("company__name")
-        .annotate(total=Count("id"))
-    )
-    total_mentions = Mention.objects.count()
+    if request.method == "POST":
+        format_ = request.POST.get("format", "pdf")
+        source_id = request.POST.get("source_id")
+        source_id = int(source_id) if source_id else None
+
+        report_data = build_ocp_report_data(source_id=source_id)
+        if format_ == "pdf":
+            return render_report_pdf(report_data)
+        if format_ == "csv":
+            return render_report_csv(report_data)
+        if format_ == "view":
+            return render(request, "report_view.html", {"report": report_data})
+        # Default to PDF export if format is unrecognized.
+        return render_report_pdf(report_data)
+
+    report_data = build_ocp_report_data()
+    ocp_mentions = get_ocp_mentions_queryset()
+    sentiment_breakdown = [
+        {"sentiment_label": key, "total": value}
+        for key, value in report_data["kpis"]["sentiment_counts"].items()
+    ]
+    company_breakdown = [
+        {"company__name": report_data["company_name"], "total": report_data["kpis"]["total_mentions"]}
+    ]
     companies_count = Company.objects.count()
-    urgent_count = Mention.objects.filter(is_urgent=True).count()
+    urgent_count = ocp_mentions.filter(is_urgent=True).count()
     source_reports = (
-        Mention.objects.select_related("source", "source__type")
-        .values("source_id", "source__name", "source__type__name")
+        ocp_mentions.values("source_id", "source__name", "source__type__name")
         .annotate(
             total_mentions=Count("id"),
             urgent_mentions=Count("id", filter=Q(is_urgent=True)),
@@ -122,7 +141,8 @@ def report_view(request):
     context = {
         "sentiment_breakdown": sentiment_breakdown,
         "company_breakdown": company_breakdown,
-        "total_mentions": total_mentions,
+        "total_mentions": report_data["kpis"]["total_mentions"],
+        "mentions_this_month": report_data["kpis"]["mentions_this_month"],
         "companies_count": companies_count,
         "urgent_count": urgent_count,
         "source_reports": source_reports,

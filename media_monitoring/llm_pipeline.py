@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import json
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from textwrap import shorten
 from types import ModuleType
@@ -22,6 +24,102 @@ _SCRAPER_METHOD_CANDIDATES: tuple[str, ...] = ("run", "scrape")
 _MODEL_FILE_CANDIDATES: tuple[str, ...] = ("ModelDeTraductionFinal.py", "ModelDeTraductionFinal (1).py")
 _SCRAPPING_MODULE_CACHE: ModuleType | None = None
 _MODEL_MODULE_CACHE: ModuleType | None = None
+
+_DEFAULT_SCORES = {"positif": 33, "negatif": 33, "neutre": 34}
+
+
+def _normalize_label_french(label: Any) -> str:
+    """
+    Map loose/free-text sentiment labels to the expected French values.
+    """
+    if not label:
+        return "neutre"
+    normalized = unicodedata.normalize("NFKD", str(label)).encode("ascii", "ignore").decode().strip().lower()
+    if "posit" in normalized or "favorable" in normalized:
+        return "positif"
+    if "negat" in normalized or "defavor" in normalized or "critique" in normalized:
+        return "negatif"
+    if "neut" in normalized or "mitige" in normalized:
+        return "neutre"
+    return "neutre"
+
+
+def _normalize_risk_level(value: Any) -> str:
+    if not value:
+        return "modéré"
+    normalized = unicodedata.normalize("NFKD", str(value)).encode("ascii", "ignore").decode().strip().lower()
+    if "eleve" in normalized or "haut" in normalized:
+        return "élevé"
+    if "faible" in normalized or "bas" in normalized:
+        return "faible"
+    return "modéré"
+
+
+def _normalize_scores(scores: Any) -> dict[str, int]:
+    if not isinstance(scores, Mapping):
+        base = dict(_DEFAULT_SCORES)
+    else:
+        base = {
+            "positif": max(0, int(round(float(scores.get("positif", 0))))),
+            "negatif": max(0, int(round(float(scores.get("negatif", 0))))),
+            "neutre": max(0, int(round(float(scores.get("neutre", 0))))),
+        }
+    total = sum(base.values())
+    if total <= 0:
+        return dict(_DEFAULT_SCORES)
+    normalized = {k: int(round(v / total * 100)) for k, v in base.items()}
+    diff = 100 - sum(normalized.values())
+    if diff:
+        target_key = max(normalized, key=normalized.get)
+        normalized[target_key] += diff
+    return normalized
+
+
+def _build_structured_prompt(content: str) -> str:
+    """
+    Ask the model for a strict French JSON payload so downstream parsing is stable.
+    """
+    return (
+        "Analyse en français l'article suivant à propos d'OCP et renvoie UNIQUEMENT un JSON valide "
+        "respectant exactement le format indiqué. Aucune autre phrase ne doit être ajoutée.\n"
+        "Tu reçois le texte d'un article (il peut être en arabe ou dans une autre langue). "
+        "Ta tâche est de résumer le contenu en français en 2 à 4 phrases. "
+        "Le résumé doit expliquer le contexte général, le sujet principal de l'article, et comment OCP est mentionné. "
+        "Ne surtout pas inclure de texte de debug, de balises HTML, d'URL, de chemins de fichier ou d'extraits de template. "
+        "Ne pas ajouter de préfixes comme « Sortie modèle: », « Analyse generale: », « Extrait source: », etc. "
+        "Le texte du résumé doit être écrit uniquement en français, lisible par un humain.\n\n"
+        "Format attendu strictement :\n"
+        "{\n"
+        '  "sentiment_label": "positif|negatif|neutre",\n'
+        '  "sentiment_scores": {"positif": 30, "negatif": 70, "neutre": 0},\n'
+        '  "sentiment_reasons": ["raison 1", "raison 2", "raison 3"],\n'
+        '  "article_summary": "Résumé concis en 2 à 4 phrases en français, sans étiquette",\n'
+        '  "resume_article": "Résumé en français (2 à 4 phrases), sans étiquette",\n'
+        '  "risk_level": "faible|modéré|élevé",\n'
+        '  "recommendations": ["recommandation 1", "recommandation 2"]\n'
+        "}\n\n"
+        "Contraintes :\n"
+        "- Les trois raisons doivent être en français, courtes, et expliquer le sentiment.\n"
+        "- Les pourcentages doivent être des entiers et la somme doit être 100.\n"
+        "- Ne pas inclure de labels comme 'Analyse generale:' ou 'Résumé:' dans article_summary.\n"
+        "- Ne pas inclure de labels ni d'URL ou de balises dans resume_article.\n"
+        "- Résume l'article en français (2 à 4 phrases), sans URL, sans HTML, sans étiquette.\n"
+        "- Retourne uniquement le JSON.\n\n"
+        "Texte à analyser :\n"
+        f"{content}"
+    )
+
+
+def _safe_parse_json_model_output(model_output: Any) -> dict[str, Any] | None:
+    if not isinstance(model_output, str):
+        return None
+    try:
+        parsed = json.loads(model_output)
+    except Exception:
+        return None
+    if not isinstance(parsed, Mapping):
+        return None
+    return dict(parsed)
 
 
 def _load_scrapping_module() -> ModuleType:
@@ -188,6 +286,40 @@ def _extract_summary_line(text: str) -> str:
     return shorten(first_line, width=240, placeholder="...") if first_line else ""
 
 
+_SUMMARY_LABEL_RE = re.compile(
+    r"^\s*(analyse generale|analyse générale|résumé|resume|summary)\s*[:\-–]\s*",
+    flags=re.IGNORECASE,
+)
+
+_WHITELIST_CHARS = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789éèàçùâêîôûëïüœÉÈÀÇÙÂÊÎÔÛËÏÜŒ .,;:!?\"'()-\n"
+)
+
+
+def _clean_summary_text(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = _SUMMARY_LABEL_RE.sub("", text.strip())
+    # Strip common noisy prefixes that sometimes leak from the model output.
+    noisy_markers = [
+        "Sortie modele",
+        "Sortie modèle",
+        "Analyse generale",
+        "Analyse générale",
+        "Extrait source",
+    ]
+    for marker in noisy_markers:
+        cleaned = re.sub(marker, " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"{%.*?%}", " ", cleaned, flags=re.DOTALL)
+    cleaned = re.sub(r"{{.*?}}", " ", cleaned, flags=re.DOTALL)
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"https?://\S+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = cleaned.strip()
+    cleaned = "".join(ch for ch in cleaned if ch in _WHITELIST_CHARS)
+    return cleaned.strip()
+
+
 def _parse_sentiment_label(model_output: str) -> tuple[str, float | None]:
     text = (model_output or "").lower()
     if "negatif" in text or "negative" in text:
@@ -199,22 +331,64 @@ def _parse_sentiment_label(model_output: str) -> tuple[str, float | None]:
     return "neutral", None
 
 
-def _structure_model_output(prompt_text: str, model_output: str) -> dict[str, Any]:
+def _structure_model_output(source_text: str, model_output: str) -> dict[str, Any]:
     """
-    Build a structured payload usable by the UI.
+    Build a structured payload usable by the UI and reporting layer.
     """
-    title = _derive_title(prompt_text, model_output)
-    summary_line = _extract_summary_line(model_output) or _extract_summary_line(prompt_text)
-    sentiment_label, sentiment_score = _parse_sentiment_label(model_output)
-    is_urgent = sentiment_label == "negative"
+    parsed = _safe_parse_json_model_output(model_output)
+    if not parsed:
+        parsed = {}
+        if model_output:
+            parsed["resume_article"] = _clean_summary_text(model_output)
+    sentiment_label_fr = _normalize_label_french(parsed.get("sentiment_label") if parsed else None)
+    raw_scores = parsed.get("sentiment_scores") if isinstance(parsed, Mapping) else None
+    sentiment_scores = _normalize_scores(raw_scores) if isinstance(raw_scores, Mapping) else None
+
+    sentiment_label_en, sentiment_score = _parse_sentiment_label(model_output)
+    if sentiment_label_fr == "negatif":
+        sentiment_label_en = "negative"
+        sentiment_score = sentiment_score if sentiment_score is not None else -0.75
+    elif sentiment_label_fr == "positif":
+        sentiment_label_en = "positive"
+        sentiment_score = sentiment_score if sentiment_score is not None else 0.75
+    else:
+        sentiment_label_en = "neutral"
+        sentiment_score = sentiment_score if sentiment_score is not None else 0.0
+
+    reasons = parsed.get("sentiment_reasons") if parsed else None
+    if not isinstance(reasons, list):
+        reasons = []
+    reasons = [str(reason).strip() for reason in reasons if str(reason).strip()]
+    reasons = reasons[:3]
+
+    article_summary = ""
+    raw_resume = parsed.get("resume_article") if parsed else None
+    if raw_resume:
+        article_summary = _clean_summary_text(str(raw_resume))
+    elif parsed and parsed.get("article_summary"):
+        article_summary = _clean_summary_text(str(parsed.get("article_summary")).strip())
+    else:
+        article_summary = _clean_summary_text(
+            _extract_summary_line(model_output) or _extract_summary_line(source_text)
+        )
+    if not article_summary:
+        article_summary = _clean_summary_text(model_output) or "Résumé indisponible."
+
+    risk_level = _normalize_risk_level(parsed.get("risk_level") if parsed else None)
+    recommendations = parsed.get("recommendations") if parsed else None
+    if not isinstance(recommendations, list):
+        recommendations = []
+    recommendations = [str(rec).strip() for rec in recommendations if str(rec).strip()]
 
     sections: list[dict[str, str]] = []
-    if summary_line:
-        sections.append({"title": "Résumé", "text": summary_line})
+    if article_summary:
+        sections.append({"title": "Résumé de l'article", "text": article_summary})
+    if reasons:
+        sections.append({"title": "Raisons du sentiment", "text": "\n".join(reasons)})
     if model_output:
-        sections.append({"title": "Analyse", "text": str(model_output).strip()})
-    if prompt_text:
-        sections.append({"title": "Extrait source", "text": str(prompt_text).strip()[:1200]})
+        sections.append({"title": "Sortie modèle", "text": str(model_output).strip()})
+    if source_text:
+        sections.append({"title": "Extrait source", "text": str(source_text).strip()[:1200]})
 
     body_parts: list[str] = []
     for section in sections:
@@ -224,16 +398,27 @@ def _structure_model_output(prompt_text: str, model_output: str) -> dict[str, An
             continue
         body_parts.append(f"{heading}: {text}" if heading else text)
 
-    body = "\n\n".join(body_parts) or model_output or prompt_text
+    body = "\n\n".join(body_parts) or model_output or source_text
+    is_urgent = sentiment_label_fr == "negatif" or risk_level == "élevé"
+    sentiment_label_display = {"negatif": "négatif", "positif": "positif", "neutre": "neutre"}.get(
+        sentiment_label_fr, sentiment_label_fr
+    )
 
     return {
-        "title": title,
-        "summary": summary_line or shorten(body, width=240, placeholder="...") if body else "",
+        "title": _derive_title(source_text, model_output),
+        "summary": article_summary or (shorten(body, width=240, placeholder="...") if body else ""),
         "body": body,
-        "sentiment_label": sentiment_label,
+        "sentiment_label": sentiment_label_display,
+        "sentiment_label_en": sentiment_label_en,
         "sentiment_score": sentiment_score,
+        "sentiment_scores": sentiment_scores,
+        "sentiment_reasons": reasons,
+        "article_summary": article_summary,
+        "resume_article": article_summary,
+        "risk_level": risk_level,
+        "recommendations": recommendations,
         "is_urgent": is_urgent,
-        "urgency_reason": "Negative sentiment detected" if is_urgent else None,
+        "urgency_reason": "Sentiment négatif détecté" if is_urgent else None,
         "sections": sections,
         "raw_output": model_output,
     }
@@ -291,13 +476,14 @@ def run_llm_pipeline(*, url: str | None = None, scraped_data: Any | None = None,
                 scraper_kwargs.setdefault("url", url)
             data_for_prompt = _run_scraper(scraper_kwargs)
 
-        prompt_text = _normalize_prompt_text(data_for_prompt)
+        base_prompt = _normalize_prompt_text(data_for_prompt)
+        prompt_text = _build_structured_prompt(base_prompt)
         model_output = _run_model(prompt_text, mode=mode, target_language=target_language)
 
         return {
             "input": prompt_text,
             "output": model_output,
-            "structured": _structure_model_output(prompt_text, model_output),
+            "structured": _structure_model_output(base_prompt, model_output),
         }
     except Exception as exc:  # noqa: BLE001 - we want to capture all failures for logging
         logger.exception("Failed to run LLM pipeline")

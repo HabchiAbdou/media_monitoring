@@ -12,6 +12,8 @@ Steps:
 from __future__ import annotations
 
 from pathlib import Path
+import re
+import unicodedata
 from typing import Any, Dict, Tuple
 from urllib.parse import urlparse
 
@@ -36,14 +38,32 @@ DEFAULT_SOURCE_TYPE = "Web"
 
 
 def _get_or_create_company() -> Company:
-    company, _ = Company.objects.get_or_create(
-        name=DEFAULT_COMPANY_NAME,
-        defaults={"website": DEFAULT_COMPANY_WEBSITE},
-    )
+    qs = Company.objects.filter(name=DEFAULT_COMPANY_NAME).order_by("id")
+    if qs.exists():
+        company = qs.first()
+        if company and not company.website:
+            company.website = DEFAULT_COMPANY_WEBSITE
+            company.save(update_fields=["website"])
+        return company
+
+    company = Company.objects.create(name=DEFAULT_COMPANY_NAME, website=DEFAULT_COMPANY_WEBSITE)
     return company
 
 
 _SOURCE_CACHE: dict[str, Source] = {}
+
+
+def _clean_article_text(text: str) -> str:
+    """
+    Remove HTML and template markers so the LLM gets plain article content.
+    """
+    if not text:
+        return ""
+    cleaned = re.sub(r"{%.*?%}", " ", text, flags=re.DOTALL)
+    cleaned = re.sub(r"{{.*?}}", " ", cleaned, flags=re.DOTALL)
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
 
 
 def _get_or_create_source(url: str) -> Source:
@@ -74,35 +94,59 @@ def _get_or_create_source(url: str) -> Source:
 
 
 def _parse_sentiment_from_structured(structured: Dict[str, Any], model_output: str) -> Tuple[str, float | None, bool, str | None]:
-    label = structured.get("sentiment_label") or "neutral"
+    """
+    Convert the LLM structured response (French) into persisted fields.
+    """
+    label_raw = structured.get("sentiment_label") or structured.get("sentiment_label_en") or "neutral"
     score = structured.get("sentiment_score")
-    is_urgent = bool(structured.get("is_urgent", label == "negative"))
+    scores = structured.get("sentiment_scores") if isinstance(structured.get("sentiment_scores"), dict) else None
+    risk_level = unicodedata.normalize("NFKD", str(structured.get("risk_level") or "")).encode("ascii", "ignore").decode().lower()
+
+    is_urgent = bool(structured.get("is_urgent", False))
     urgency_reason = structured.get("urgency_reason")
 
-    normalized = str(label).lower()
+    normalized = unicodedata.normalize("NFKD", str(label_raw)).encode("ascii", "ignore").decode().lower()
     if normalized in {"negative", "negatif"}:
         label = "negative"
-        score = score if score is not None else -0.75
-        urgency_reason = urgency_reason or "Negative sentiment detected by LLM"
-        is_urgent = True
     elif normalized in {"positive", "positif"}:
         label = "positive"
-        score = score if score is not None else 0.75
     elif normalized in {"neutral", "neutre"}:
         label = "neutral"
-        score = score if score is not None else 0.0
     else:
         # Fallback using keywords from raw model output.
         text = (model_output or "").lower()
         if "negatif" in text or "negative" in text:
-            label, score, is_urgent = "negative", -0.75, True
-            urgency_reason = urgency_reason or "Negative sentiment detected by LLM"
+            label = "negative"
         elif "positif" in text or "positive" in text:
-            label, score = "positive", 0.75
+            label = "positive"
         elif "neutre" in text or "neutral" in text:
-            label, score = "neutral", 0.0
+            label = "neutral"
         else:
             label = "neutral"
+
+    if score is None and scores:
+        try:
+            pos = float(scores.get("positif", 0))
+            neg = float(scores.get("negatif", 0))
+            score = (pos - neg) / 100.0
+        except Exception:
+            score = None
+
+    if score is None:
+        if label == "negative":
+            score = -0.75
+        elif label == "positive":
+            score = 0.75
+        else:
+            score = 0.0
+
+    if risk_level == "eleve" and not urgency_reason:
+        urgency_reason = "Niveau de risque élevé détecté par le modèle"
+    if risk_level == "eleve":
+        is_urgent = True
+    if label == "negative":
+        is_urgent = True
+        urgency_reason = urgency_reason or "Sentiment négatif détecté par le modèle"
 
     return label, score, is_urgent, urgency_reason
 
@@ -138,21 +182,39 @@ def _sanitize_display_title(candidate: str | None, fallback: str, sentiment_labe
 def _store_scrape_result(scrape_result: Dict[str, Any], company: Company) -> Tuple[Mention, bool]:
     url = scrape_result.get("url") or ""
     text = scrape_result.get("text") or ""
+    cleaned_text = _clean_article_text(text)
     page_title = scrape_result.get("title") or url
     saved_path = scrape_result.get("saved_path")
 
     source = _get_or_create_source(url)
     published_at = timezone.now()
 
-    llm_result = run_llm_pipeline(url=url, scraped_data={"title": page_title, "content": text})
-    structured = llm_result.get("structured") if isinstance(llm_result, dict) else {}  # type: ignore[assignment]
+    llm_result = run_llm_pipeline(url=url, scraped_data={"title": page_title, "content": cleaned_text}) or {}
+    structured = llm_result.get("structured") if isinstance(llm_result, dict) else {}
+    if structured is None:
+        structured = {}
     model_output = llm_result.get("output") if isinstance(llm_result, dict) else ""
     sentiment_label, sentiment_score, is_urgent, urgency_reason = _parse_sentiment_from_structured(
         structured or {}, model_output or ""
     )
 
+    # Heuristic fallback: flag urgent if high-risk keywords appear in the scraped text.
+    if not is_urgent and text:
+        lowered = text.lower()
+        keywords = ["scandal", "scandale", "الفضائح", "فضائح"]
+        if any(k in lowered for k in keywords):
+            is_urgent = True
+            urgency_reason = urgency_reason or "Mot-clé critique détecté dans le texte"
+
     # Favor real scraped content for UI display; keep LLM details in raw_metadata.
-    content_body = text or structured.get("body") or structured.get("summary") or model_output or page_title
+    content_body = (
+        cleaned_text
+        or structured.get("article_summary")
+        or structured.get("body")
+        or structured.get("summary")
+        or model_output
+        or page_title
+    )
     content_body = content_body[:4000]  # keep payload light for list rendering
     display_title = _sanitize_display_title(structured.get("title"), page_title or url, sentiment_label)
 

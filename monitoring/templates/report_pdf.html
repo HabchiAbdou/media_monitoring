@@ -1,12 +1,19 @@
 {% load static %}
-{% load i18n_fr %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8">
-    <title>{{ "Rapport de veille médiatique – OCP"|t }}</title>
+    <title>Rapport de veille médiatique – OCP</title>
     <style>
-        body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
+        @font-face {
+            font-family: 'ReportSans';
+            src: url("{{ font_sans_path }}") format('truetype');
+        }
+        @font-face {
+            font-family: 'ReportArabic';
+            src: url("{{ font_arabic_path }}") format('truetype');
+        }
+        body { font-family: 'ReportArabic', 'ReportSans', sans-serif; color: #111827; margin: 24px; }
         .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         .header-table td { vertical-align: middle; }
         .logo { max-height: 70px; }
@@ -21,7 +28,6 @@
         .list { margin: 0; padding-left: 16px; }
         .mention { border: 1px solid #d1d5db; padding: 12px; margin-bottom: 12px; }
         .muted { color: #4b5563; }
-        hr { border: none; border-top: 1px solid #e5e7eb; margin: 14px 0; }
     </style>
 </head>
 <body>
@@ -29,10 +35,10 @@
         <tr>
             <td><img src="{% static 'img/ocp-logo.png' %}" alt="OCP"></td>
             <td>
-                <h1>{{ "Rapport de veille médiatique – OCP"|t }}</h1>
-                <p class="meta">{{ "Generated on"|t }} : {{ report.generated_at|date:"d/m/Y H:i" }}</p>
+                <h1>Rapport de veille médiatique – OCP</h1>
+                <p class="meta">Généré le : {{ report.generated_at|date:"d/m/Y H:i" }}</p>
                 <p class="meta">
-                    {{ "Coverage period"|t }} :
+                    Période couverte :
                     {% if report.time_window.start %}
                         {{ report.time_window.start|date:"d/m/Y" }}
                     {% else %}
@@ -49,26 +55,26 @@
         </tr>
     </table>
 
-    <h2>{{ "Global synthesis"|t }}</h2>
+    <h2>Synthèse globale</h2>
     <div class="box">
-        <p><strong>{{ "Executive summary"|t }} :</strong> {{ report.ai_sections.executive_summary }}</p>
-        <p><strong>{{ "Tone overview"|t }} :</strong> {{ report.ai_sections.tone_overview }}</p>
-        <p><strong>{{ "Risk overview"|t }} :</strong> {{ report.ai_sections.risk_overview }}</p>
-        <p><strong>{{ "Recommendations"|t }} :</strong> {{ report.ai_sections.recommendations }}</p>
+        <p><strong>Résumé exécutif :</strong> {{ report.ai_sections.executive_summary|default:"Aucune donnée disponible." }}</p>
+        <p><strong>Vue d’ensemble du ton :</strong> {{ report.ai_sections.tone_overview|default:"Aucune donnée disponible." }}</p>
+        <p><strong>Vue d’ensemble des risques :</strong> {{ report.ai_sections.risk_overview|default:"Aucune donnée disponible." }}</p>
+        <p><strong>Recommandations :</strong> {{ report.ai_sections.recommendations|default:"Aucune donnée disponible." }}</p>
     </div>
 
-    <h2>{{ "Key indicators"|t }}</h2>
+    <h2>Indicateurs clés</h2>
     <table class="kpi-table">
         <tr>
-            <td class="kpi-label">{{ "Total mentions"|t }}</td>
+            <td class="kpi-label">Total des mentions</td>
             <td>{{ report.kpis.total_mentions }}</td>
         </tr>
         <tr>
-            <td class="kpi-label">{{ "This Month"|t }}</td>
+            <td class="kpi-label">Mentions ce mois-ci</td>
             <td>{{ report.kpis.mentions_this_month }}</td>
         </tr>
         <tr>
-            <td class="kpi-label">{{ "Mentions by source type"|t }}</td>
+            <td class="kpi-label">Mentions par type de source</td>
             <td>
                 {% if report.kpis.mentions_by_source_type %}
                     <ul class="list">
@@ -82,7 +88,7 @@
             </td>
         </tr>
         <tr>
-            <td class="kpi-label">{{ "Sentiment breakdown"|t }}</td>
+            <td class="kpi-label">Répartition du sentiment</td>
             <td>
                 {% if report.kpis.sentiment_counts %}
                     <ul class="list">
@@ -97,22 +103,48 @@
         </tr>
     </table>
 
-    <h2>{{ "Detailed mentions"|t }}</h2>
+    <h2>Mentions détaillées</h2>
     {% if report.mentions %}
         {% for mention in report.mentions %}
             <div class="mention">
-                <h3>{{ "Mention"|t }} {{ forloop.counter }}</h3>
-                <p><strong>{{ "Date"|t }} :</strong> {{ mention.published_at|date:"d/m/Y H:i" }}</p>
-                <p><strong>{{ "Source"|t }} :</strong> {{ mention.source_name }} ({{ mention.source_type }})</p>
-                <p><strong>{{ "Title"|t }} :</strong> {{ mention.title }}</p>
+                <h3>Mention {{ forloop.counter }}</h3>
+                <p><strong>Date :</strong> {{ mention.published_at|date:"d/m/Y H:i" }}</p>
+                <p><strong>Source :</strong> {{ mention.source_name }} ({{ mention.source_type }})</p>
+                <p><strong>Titre :</strong> {{ mention.title }}</p>
                 <p><strong>URL :</strong> {{ mention.url }}</p>
-                <p><strong>{{ "Excerpt"|t }} :</strong> {{ mention.raw_excerpt }}</p>
-                <p><strong>{{ "Detected sentiment"|t }} :</strong> {{ mention.sentiment }}</p>
-                <p><strong>{{ "Category"|t }} :</strong> {{ mention.category }}</p>
-                <p><strong>{{ "Auto summary"|t }} :</strong> {{ mention.ai_summary }}</p>
-                <p><strong>{{ "Impact level"|t }} :</strong> {{ mention.ai_impact_level }}</p>
-                <p><strong>{{ "Tone analysis"|t }} :</strong> {{ mention.ai_tone_comment }}</p>
-                <p><strong>{{ "Recommendation"|t }} :</strong> {{ mention.ai_recommendation }}</p>
+                {% if mention.sentiment_scores %}
+                    <p>
+                        <strong>Sentiment global :</strong>
+                        {{ mention.sentiment_label|default:"Données indisponibles" }}
+                        ({{ mention.sentiment_scores.positif|default:0 }}% positif,
+                         {{ mention.sentiment_scores.neutre|default:0 }}% neutre,
+                         {{ mention.sentiment_scores.negatif|default:0 }}% négatif)
+                    </p>
+                {% else %}
+                    <p><strong>Sentiment global :</strong> {{ mention.sentiment_label|default:"Données indisponibles" }}</p>
+                {% endif %}
+                <p><strong>Résumé de l'article :</strong> {{ mention.resume_article|default:"Résumé indisponible." }}</p>
+                {% if mention.sentiment_reasons %}
+                    <p><strong>Principales raisons de la décision :</strong></p>
+                    <ul class="list">
+                        {% for reason in mention.sentiment_reasons %}
+                            {% if reason %}
+                                <li>{{ reason }}</li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p><strong>Principales raisons de la décision :</strong> Aucune raison disponible.</p>
+                {% endif %}
+                <p><strong>Niveau de risque :</strong> {{ mention.risk_level|default:"Données indisponibles" }}</p>
+                <p><strong>Recommandations :</strong></p>
+                <ul class="list">
+                    {% for rec in mention.recommendations %}
+                        <li>{{ rec }}</li>
+                    {% empty %}
+                        <li>Données indisponibles.</li>
+                    {% endfor %}
+                </ul>
             </div>
         {% endfor %}
     {% else %}

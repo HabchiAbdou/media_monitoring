@@ -1,0 +1,398 @@
+% TODO IMAGES:
+% - monitoring/templates/dashboard.html : capture dashboard (bouton "Lancer la veille", cartes de stats, dark mode activé).
+% - monitoring/templates/report.html : capture section rapports (boutons PDF/CSV, lignes par source, actions View/Download).
+% - monitoring/templates/admin/users.html : capture gestion utilisateurs et ScrapeTarget (états actif/inactif).
+% - FrontEnd_extracted/src/components/Dashboard.tsx : capture prototype Vite (cartes KPIs, tableau SourcesTable, MentionsList).
+% - FrontEnd_extracted/src/components/ReportsPage.tsx : capture prototype Vite (cartes de stats, liste Available Reports).
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes,fit}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{longtable}
+\usepackage{pifont}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+\onehalfspacing
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue}
+
+\title{Rapport technique de veille médiatique orienté rapportage}
+\author{Étudiant Data Science}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction \& contexte}
+Le projet \emph{media\_monitoring} fournit une chaîne de veille médiatique centrée sur OCP, du recueil de mentions jusqu'aux exports PDF/CSV. Le code backend est basé sur Django (\texttt{monitoring/}), le frontend interne sur templates HTML/CSS (\texttt{monitoring/templates/}) avec un prototype Vite/React (\texttt{FrontEnd\_extracted/src/}). Les rapports sont rendus via \texttt{xhtml2pdf} à partir de gabarits HTML (\texttt{report\_pdf.html}). Les données sont persistées en SQLite en développement, et l'application est prévue pour un déploiement sur Render.
+
+\subsection{Positionnement}
+Le produit cible les équipes communication et gestion de risque d'OCP. Il offre des alertes urgentes, une vue agrégée des sources, et des rapports exportables pour diffusion interne ou gouvernance.
+
+\subsection{Public visé de ce rapport}
+Ce document s'adresse à un public technique (ingénieurs data, backend, ops) et produit en français. Les termes techniques usuels (backend, frontend, pipeline, database, API, deployment, Render, queue, worker, endpoint, ORM, UI, component, state, etc.) sont conservés en anglais lorsqu'ils sont standard.
+
+\section{Objectifs du projet et périmètre}
+\subsection{Objectifs}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Centraliser et classifier les mentions d'OCP provenant de sources web variées.
+    \item Détecter le sentiment et les signaux d'alerte (\texttt{is\_urgent}) via un LLM interne.
+    \item Offrir un tableau de bord temps quasi-réel et des exports structurés (PDF, CSV).
+    \item Garantir la traçabilité (horodatage, provenance, sortie LLM) et la reproductibilité.
+\end{itemize}
+
+\subsection{Hors périmètre}
+Le scraping détaillé (choix des librairies, parsing) est géré par un autre membre de l'équipe et n'est pas documenté ici. On mentionne uniquement son rôle et ses entrées/sorties.
+
+\section{Stack technologique}
+\subsection{Backend}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Django 5} : routage, auth, ORM, templates (\texttt{monitoring/views.py}, \texttt{monitoring/urls.py}, \texttt{media\_monitoring/settings.py}).
+    \item \textbf{ORM SQLite} en dév (\texttt{db.sqlite3}) ; basculable vers PostgreSQL en production.
+    \item \textbf{xhtml2pdf} + \textbf{reportlab} : rendu PDF à partir d'HTML (\texttt{render\_report\_pdf}).
+    \item \textbf{CSV natif} : \texttt{csv.writer} pour l'export tabulaire (\texttt{render\_report\_csv}).
+    \item \textbf{LLM pipeline} : \texttt{media\_monitoring/llm\_pipeline.py} (prompt structuré JSON, normalisation, appel à \texttt{ModelDeTraductionFinal (1).py}).
+\end{itemize}
+
+\subsection{Frontend}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Templates Django} : \texttt{dashboard.html}, \texttt{report.html}, \texttt{report\_view.html}, \texttt{base.html}.
+    \item \textbf{CSS custom} : thème clair/sombre, grilles, badges urgents (\texttt{monitoring/static/css/styles.css}).
+    \item \textbf{JS} : interactions (toggle dark mode, bouton veille, bannières) dans \texttt{monitoring/static/js/dashboard.js}.
+    \item \textbf{Prototype Vite/React} : \texttt{FrontEnd\_extracted/src/components} (Dashboard, ReportsPage, Navbar, MentionsList, SourcesTable).
+\end{itemize}
+
+\subsection{Données \& stockage}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Modèles} : \texttt{Company}, \texttt{SourceType}, \texttt{Source}, \texttt{Mention}, \texttt{ScrapeTarget}.
+    \item \textbf{Fichiers statiques} : polices Noto pour PDF (\texttt{monitoring/static/fonts/}), logo OCP.
+    \item \textbf{Tests} : \texttt{monitoring/tests.py} cibles PDF (extraction de texte via pypdf).
+\end{itemize}
+
+\section{Architecture du système}
+Le système combine un frontend statique, un backend Django, un pipeline LLM et une database. Le flux standard : UI $\rightarrow$ endpoint Django $\rightarrow$ ORM $\rightarrow$ LLM \& stockage $\rightarrow$ export rapport.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.8cm, >=Latex, font=\small]
+\node (ui) [draw, rounded corners, fill=blue!10, align=center, minimum width=3.0cm] {Frontend\\(Templates + Vite)};
+\node (nginx) [draw, rounded corners, fill=gray!10, right=2.8cm of ui, align=center, minimum width=3.0cm] {Route HTTP\\(Render routing)};
+\node (django) [draw, rounded corners, fill=green!10, below=1.6cm of nginx, align=center, minimum width=3.4cm] {Backend Django\\\texttt{monitoring/}};
+\node (db) [draw, cylinder, shape border rotate=90, aspect=0.25, fill=yellow!20, right=2.4cm of django, minimum width=1.5cm, minimum height=1.9cm, align=center] {SQLite/PG};
+\node (files) [draw, rounded corners, fill=orange!20, below=1.6cm of django, align=center, minimum width=3.4cm] {Rapports\\PDF / CSV};
+\node (llm) [draw, rounded corners, fill=purple!10, left=2.8cm of django, align=center, minimum width=3.6cm] {LLM pipeline\\\texttt{llm\_pipeline.py}};
+\draw[->] (ui) -- node[above]{HTTP} (nginx);
+\draw[->] (nginx) -- node[right]{WSGI} (django);
+\draw[->] (django) -- node[above]{ORM} (db);
+\draw[->] (django) -- node[right]{flux binaire} (files);
+\draw[<->] (django) -- node[above]{texte + scores} (llm);
+\end{tikzpicture}
+\caption{Architecture globale}
+\label{fig:archi-globale}
+\end{figure}
+
+\section{Modélisation et données}
+\subsection{Schéma}
+\begin{longtable}{p{3cm}p{11cm}}
+\toprule
+\textbf{Entité} & \textbf{Rôle et champs essentiels} \\
+\midrule
+Company & Nom, site web. Point d'ancrage pour les mentions. \\
+SourceType & Type (Web, Social, etc.). \\
+Source & Nom, URL, FK \texttt{SourceType}. \\
+Mention & Titre, contenu nettoyé, \texttt{original\_url}, \texttt{published\_at}, \texttt{sentiment\_label/score}, \texttt{is\_urgent}, \texttt{raw\_metadata} (inclut entrée/sortie LLM). \\
+ScrapeTarget & URL à surveiller, \texttt{is\_active}, libellé. \\
+\bottomrule
+\end{longtable}
+
+\subsection{Qualité et normalisation}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Nettoyage HTML et balises template (\texttt{\_clean\_article\_text}).
+    \item Normalisation du sentiment (mapping fr/en, scores en pourcentage) et du risque.
+    \item Déduplication par \texttt{original\_url} (update\_or\_create).
+    \item Extraits préférentiels (\texttt{\_pick\_excerpt}) pour fournir un contexte court.
+\end{itemize}
+
+\section{Pipeline de bout en bout}
+\subsection{Chaîne principale}
+\begin{enumerate}[leftmargin=1.2cm]
+    \item \textbf{Déclenchement} : bouton ``Lancer la veille'' (dashboard) ou POST \texttt{/run-monitor/}.
+    \item \textbf{Scraping} (haute vue) : récupère les cibles \texttt{ScrapeTarget}, collecte les pages et renvoie texte + méta ; géré par un autre membre.
+    \item \textbf{Nettoyage} : suppression balises, squelettes de template.
+    \item \textbf{LLM} : prompt JSON (sentiment, scores, raisons, résumé, risque, recommandations) puis interprétation structurée.
+    \item \textbf{Persistance} : enregistrement \texttt{Mention} avec indicateur d'urgence et méta LLM.
+    \item \textbf{Consultation} : dashboard, API \texttt{/api/mentions}, \texttt{/api/alerts}.
+    \item \textbf{Rapport} : agrégation et export PDF/CSV via \texttt{report\_view}.
+\end{enumerate}
+
+\subsection{Pipeline backend focalisé}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.5cm, >=Latex, font=\small]
+\node (trigger) [draw, rounded corners, fill=blue!10, minimum width=3.3cm, align=center] {UI /run-monitor/};
+\node (ingest) [draw, rounded corners, fill=green!10, below=1.2cm of trigger, align=center, minimum width=3.6cm] {\texttt{ingest\_latest\_articles}};
+\node (scrape) [draw, rounded corners, fill=gray!15, below=1.2cm of ingest, align=center, minimum width=3.6cm] {Scraping\\(autre membre)};
+\node (llm) [draw, rounded corners, fill=purple!10, below=1.2cm of scrape, align=center, minimum width=3.8cm] {\texttt{run\_llm\_pipeline}};
+\node (orm) [draw, rounded corners, fill=yellow!20, below=1.2cm of llm, align=center, minimum width=3.6cm] {ORM Django\\\texttt{Mention}};
+\node (report) [draw, rounded corners, fill=orange!20, below=1.2cm of orm, align=center, minimum width=3.8cm] {\texttt{build\_ocp\_report\_data}\\PDF/CSV};
+\draw[->] (trigger) -- node[right]{POST} (ingest);
+\draw[->] (ingest) -- (scrape);
+\draw[->] (scrape) -- node[right]{texte net} (llm);
+\draw[->] (llm) -- node[right]{scores + résumés} (orm);
+\draw[->] (orm) -- node[right]{queryset} (report);
+\end{tikzpicture}
+\caption{Pipeline backend : collecte à export}
+\label{fig:pipeline-backend}
+\end{figure}
+
+\section{Frontend : parcours et écrans}
+\subsection{Templates Django}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Dashboard} (\texttt{monitoring/templates/dashboard.html}) : héro, bouton de veille, cartes de stats, tableau de sources, liste de mentions urgentes, bascule dark mode.
+    \item \textbf{Rapports} (\texttt{monitoring/templates/report.html}) : CTA PDF/CSV, lignes par source avec actions \texttt{View} / \texttt{Download}.
+    \item \textbf{Report view} (\texttt{report\_view.html}) : prévisualisation HTML des KPIs et mentions.
+    \item \textbf{Base layout} (\texttt{base.html}) : topbar, thème, nav, messages, JS commun.
+\end{itemize}
+
+\subsection{Prototype Vite/React}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Dashboard.tsx} : Navbar, HeroHeader, MetricCard, SourcesTable, MentionsList, AlertBar.
+    \item \textbf{ReportsPage.tsx} : cartes de stats, liste de rapports avec CTA \texttt{View} et \texttt{Download}, section ``Generate Custom Report''.
+\end{itemize}
+
+\subsection{Plan des captures (organisation)}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Figure \ref{fig:ui-dashboard}} : écran dashboard Django (\texttt{monitoring/templates/dashboard.html}), inclure bouton ``Lancer la veille'', cartes de stats et dark mode activé.
+    \item \textbf{Figure \ref{fig:ui-reports}} : page rapports Django (\texttt{monitoring/templates/report.html}), boutons PDF/CSV, lignes par source avec actions \texttt{View}/\texttt{Download}.
+    \item \textbf{Figure \ref{fig:ui-vite}} : prototype Vite (\texttt{FrontEnd\_extracted/src/components/ReportsPage.tsx}), cartes de KPIs et liste ``Available Reports''.
+    \item \textbf{(Optionnel)} Ajouter une capture admin (\texttt{monitoring/templates/admin/users.html}) montrant gestion utilisateurs et ScrapeTarget; la placer après Figure \ref{fig:ui-reports} si produite.
+\end{itemize}
+
+\subsection{Placeholders de figures}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/dashboard.png}
+\caption{Dashboard Django (bouton de veille, alertes, dark mode)}
+\label{fig:ui-dashboard}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/reports-list.png}
+\caption{UI rapports (PDF/CSV, filtres par source)}
+\label{fig:ui-reports}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/vite-reports-proto.png}
+\caption{Prototype Vite pour les rapports (cartes + liste)}
+\label{fig:ui-vite}
+\end{figure}
+
+\section{Profils et rôles (admin vs utilisateur)}
+\subsection{Profil administrateur}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Accès via routes d'administration (\texttt{/administration/login/}, \texttt{/administration/users/}, \texttt{/administration/scrape-targets/}).
+    \item Peut créer/désactiver/supprimer des utilisateurs, réinitialiser leurs mots de passe, et gérer les \texttt{ScrapeTarget} (activer/désactiver, ajouter, supprimer).
+    \item Accès aux mêmes vues que l'utilisateur standard (dashboard, rapports) mais avec navigation Admin visible.
+    \item Authentification stricte : seuls les superusers (Django) passent les gardes \texttt{admin\_required}.
+\end{itemize}
+
+\subsection{Profil utilisateur standard}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Accès au dashboard (\texttt{/}) pour voir les mentions, urgences, stats et lancer la veille (\texttt{/run-monitor/}).
+    \item Accès à la page Rapports (\texttt{/report/}) pour générer et télécharger PDF/CSV; visualisation HTML (\texttt{format=view}) accessible.
+    \item Pas d'accès aux routes d'administration ni à la gestion des comptes ou des cibles de scraping.
+    \item Authentifié via les vues de login standard Django (\texttt{/accounts/login/}) et soumis aux permissions \texttt{login\_required}.
+\end{itemize}
+
+\section{Génération de rapports (section majeure)}
+\subsection{Formats produits}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{PDF} : rendu HTML $\rightarrow$ PDF via \texttt{xhtml2pdf} (\texttt{render\_report\_pdf}), polices Noto pour le multilingue.
+    \item \textbf{CSV} : export tabulaire (\texttt{render\_report\_csv}) avec en-tête fixe : id, date, source\_name, source\_type, title, url, sentiment, category.
+    \item \textbf{HTML interne} : \texttt{report\_view.html} pour lecture directe des mêmes données.
+\end{itemize}
+
+\subsection{Chaîne de bout en bout}
+\begin{enumerate}[leftmargin=1.2cm]
+    \item \textbf{UI trigger} : bouton \texttt{Generate PDF} ou \texttt{Download CSV} (\texttt{report.html}); POST \texttt{/report/} avec \texttt{format} et \texttt{source\_id} (optionnel).
+    \item \textbf{Requête backend} : \texttt{report\_view} lit les paramètres, appelle \texttt{build\_ocp\_report\_data(source\_id)}.
+    \item \textbf{Database query} : \texttt{get\_ocp\_mentions\_queryset} filtre sur company OCP (ou fallback mot-clé), applique \texttt{source\_id} si fourni.
+    \item \textbf{Transformation/agrégation} :
+    \begin{itemize}[leftmargin=0.9cm]
+        \item Calcul KPI : \texttt{total\_mentions}, \texttt{mentions\_this\_month}, \texttt{mentions\_by\_source\_type}, \texttt{sentiment\_counts}.
+        \item Normalisation des labels (positif/négatif/neutre), scores (\%), niveaux de risque, recommandations, raisons du sentiment.
+        \item Extraits (\texttt{\_pick\_excerpt}), résumés (\texttt{\_clean\_summary\_text}), catégorie (\texttt{\_resolve\_category}).
+    \end{itemize}
+    \item \textbf{Mise en forme} :
+    \begin{itemize}[leftmargin=0.9cm]
+        \item Injection dans \texttt{report\_pdf.html} avec sections Synthèse, KPIs, Mentions détaillées.
+        \item CSS embarqué (polices, couleurs, bordures) pour un rendu stable en PDF.
+    \end{itemize}
+    \item \textbf{Fichier} : \texttt{pisa.CreatePDF} produit un flux en mémoire; nommage \texttt{rapport\_ocp\_\{timestamp\}.pdf}. CSV similaire.
+    \item \textbf{Download} : réponse HTTP avec \texttt{Content-Disposition: attachment}; pas de stockage disque persistant.
+\end{enumerate}
+
+\subsection{Filtres et paramètres}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Source} : \texttt{source\_id} limite le queryset; exposé dans \texttt{report.html} par ligne de source.
+    \item \textbf{Fenêtre temporelle implicite} : \texttt{Min/Max} sur \texttt{published\_at} pour afficher la période couverte; calcul \texttt{mentions\_this\_month}.
+    \item \textbf{Mots-clés/catégories} : non filtrables en UI, mais présents en sortie (colonne catégorie, raisons du sentiment).
+\end{itemize}
+
+\subsection{Gestion des erreurs}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Dataset vide} : PDF affiche ``Aucune mention disponible''; CSV contient uniquement l'en-tête.
+    \item \textbf{Paramètres invalides} : format non reconnu $\rightarrow$ fallback PDF; \texttt{source\_id} inexistant $\rightarrow$ ignoré.
+    \item \textbf{PDF partiellement rendu} : erreurs \texttt{pisa} logguées mais la réponse est renvoyée (meilleure expérience utilisateur).
+\end{itemize}
+
+\subsection{Traçabilité}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Horodatage} : \texttt{generated\_at} et période couverte en tête de rapport.
+    \item \textbf{Provenance} : \texttt{source\_name}, \texttt{source\_type}, \texttt{original\_url} par mention.
+    \item \textbf{Méta LLM} : \texttt{raw\_metadata.llm.input/output/structured} conservés pour audit.
+    \item \textbf{Reproductibilité} : normalisation des labels et scores assure des distributions cohérentes.
+\end{itemize}
+
+\subsection{Scalabilité}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Grand volume} : PDF construit en mémoire; prévoir pagination ou limitation de mentions pour éviter la surcharge.
+    \item \textbf{Async} : ajout recommandé d'une \textbf{queue + worker} (Celery/RQ) pour générations lourdes ou multiples.
+    \item \textbf{Cache} : mettre en cache les KPI par source (time-box) pour ne pas recalculer CSV/PDF séquentiels.
+    \item \textbf{Stockage objet} : optionnel pour conserver un historique (Render/Cloud bucket) au lieu d'un flux éphémère.
+\end{itemize}
+
+\subsection{Améliorations futures}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Bibliothèque de \textbf{templates} (branding, couleurs, pagination).
+    \item \textbf{Programmation} récurrente (journalier/hebdo) + \textbf{email delivery}.
+    \item \textbf{Queue + workers} : paralléliser PDF et CSV, ajouter un statut de tâche.
+    \item \textbf{Visuals} : insérer graphiques HTML/CSS (bar/pie) dans \texttt{report\_pdf.html}.
+    \item \textbf{Filtres avancés} : date range, mots-clés, catégories depuis l'UI.
+\end{itemize}
+
+\subsection{Snippets essentiels (limite 2, concis)}
+\noindent 1) Flux de génération (pseudo):
+\emph{UI POST /report} $\rightarrow$ \emph{build\_ocp\_report\_data(source\_id?)} $\rightarrow$ \emph{render\_report\_{pdf|csv}}.
+
+\noindent 2) Fallback minimal : si \texttt{mentions} est vide, afficher l'état vide; sinon, itérer KPI puis mentions.
+
+\section{Expérience utilisateur \& accessibilité}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Thème clair/sombre pré-rendu pour éviter le flash (\texttt{base.html}, script inline).
+    \item Bannières auto-dismiss pour les alertes (JS).
+    \item Navigation responsive (menu mobile \texttt{dashboard.js}).
+    \item Bouton de veille désactivé pendant l'appel, message d'attente, rechargement auto.
+\end{itemize}
+
+\section{Tests et validation}
+\subsection{Couverture actuelle}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{PDF} : \texttt{monitoring/tests.py} vérifie textes, pourcentages, fallback de champs manquants.
+    \item \textbf{LLM} : non mocké mais structure testée via PDF (scores, raisons).
+    \item \textbf{UI} : pas de tests automatisés; validations manuelles.
+\end{itemize}
+
+\subsection{Lacunes et pistes}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Tests d'API (auth, \texttt{/run-monitor/}, \texttt{/api/mentions}) à ajouter.
+    \item Tests d'accessibilité (contrast, focus, clavier).
+    \item Tests de charge sur PDF/CSV pour grands volumes.
+\end{itemize}
+
+\section{Sécurité \& conformité}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Auth Django, restriction admin (\texttt{admin\_required}).
+    \item CSRF actif sur les formulaires; endpoints JSON protégés (\texttt{login\_required} ou garde admin).
+    \item Pas de secrets commités en prod : externaliser \texttt{SECRET\_KEY}, DB URL.
+    \item Logs LLM potentiellement sensibles : envisager un masquage ou une retention limitée.
+\end{itemize}
+
+\section{Observabilité}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Logging} : warnings PDF, erreurs ingestion.
+    \item \textbf{Mét­riques proposées} : temps de génération PDF/CSV, mentions traitées, taux d'erreur LLM, latence \texttt{/run-monitor/}.
+    \item \textbf{Dashboards} : à construire (ex. Grafana) si passage en production.
+\end{itemize}
+
+\section{Opérations et runbook}
+\subsection{Relancer la veille}
+\begin{enumerate}[leftmargin=1.2cm]
+    \item Se connecter.
+    \item Ouvrir le dashboard.
+    \item Cliquer ``Lancer la veille''; attendre la bannière de résultat; rechargement auto.
+\end{enumerate}
+
+\subsection{Générer un rapport}
+\begin{enumerate}[leftmargin=1.2cm]
+    \item Aller sur l'onglet Rapports.
+    \item Choisir la ligne source (optionnel) et cliquer \texttt{View}/\texttt{Download}.
+    \item Sélectionner PDF ou CSV; le fichier est téléchargé.
+\end{enumerate}
+
+\subsection{Dépannage rapide}
+\begin{itemize}[leftmargin=1.2cm]
+    \item PDF vide : vérifier qu'il existe des \texttt{Mention}; sinon l'état vide est attendu.
+    \item Erreur PDF : consulter logs \texttt{pisa}; vérifier les polices dans \texttt{monitoring/static/fonts/}.
+    \item Aucune source : créer des \texttt{ScrapeTarget} via l'admin.
+\end{itemize}
+
+\section{Déploiement sur Render}
+\subsection{Services et commandes}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \textbf{Backend web service} : build \texttt{pip install -r requirements.txt}. Start \texttt{gunicorn media\_monitoring.wsgi:application --bind 0.0.0.0:\$PORT}.
+    \item \textbf{Collectstatic} : \texttt{python manage.py collectstatic --noinput} (si Render sert les statiques).
+    \item \textbf{Frontend Vite} (si déployé) : \texttt{npm install \&\& npm run build}, publier \texttt{dist/} en static site.
+\end{itemize}
+
+\subsection{Variables d'environnement}
+\begin{itemize}[leftmargin=1.2cm]
+    \item \texttt{SECRET\_KEY}, \texttt{DEBUG=False}, \texttt{ALLOWED\_HOSTS}.
+    \item \texttt{DATABASE\_URL} (PostgreSQL Render) pour remplacer SQLite.
+    \item \texttt{PORT} (fournie par Render) consommée par gunicorn.
+\end{itemize}
+
+\subsection{Diagramme de déploiement}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.6cm, >=Latex, font=\small]
+\node (cdn) [draw, rounded corners, fill=blue!10, minimum width=3.2cm, align=center] {Static site\\(Vite build)};
+\node (svc) [draw, rounded corners, fill=green!10, right=3.0cm of cdn, minimum width=3.4cm, align=center] {Web Service\\Django + gunicorn};
+\node (db) [draw, cylinder, shape border rotate=90, aspect=0.25, fill=yellow!20, below=1.6cm of svc, minimum width=1.6cm, minimum height=1.9cm, align=center] {PostgreSQL};
+\node (bucket) [draw, rounded corners, fill=orange!20, below=1.6cm of cdn, minimum width=3.2cm, align=center] {Static/Fonts\\collectstatic};
+\node (env) [draw, dashed, rounded corners, fit=(svc)(db)(bucket), inner sep=0.4cm, label={[above left]0:Render env}] {};
+\draw[->] (cdn) -- node[above]{assets} (svc);
+\draw[->] (svc) -- node[right]{ORM} (db);
+\draw[->] (svc) -- node[left]{serve} (bucket);
+\end{tikzpicture}
+\caption{Déploiement Render (backend + static)}
+\label{fig:render-deploy}
+\end{figure}
+
+\section{Limitations \& travaux futurs}
+\begin{itemize}[leftmargin=1.2cm]
+    \item Scraping non documenté ici (géré par un autre membre).
+    \item Pas de filtres date ou mots-clés en UI pour les exports.
+    \item Génération synchrone (absence de queue).
+    \item Auth simple (pas de MFA, pas de rate-limit API).
+    \item Pas de stockage historique des rapports (flux éphémère).
+\end{itemize}
+
+\section{Conclusion}
+Le projet combine un backend Django robuste, un pipeline LLM pour l'analyse de sentiment et un module de reporting PDF/CSV fiable. Les prochaines étapes clés concernent l'industrialisation Render (PostgreSQL, collectstatic), l'ajout de filtres avancés pour le rapport, l'introduction d'une queue asynchrone pour absorber des volumes plus importants, et la distribution par email planifiée.
+
+\end{document}

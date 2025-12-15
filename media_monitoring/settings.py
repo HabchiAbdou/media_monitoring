@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 # Paths
@@ -6,7 +7,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Security / debugging
 SECRET_KEY = "dev-secret-key-change-me"
 DEBUG = True
-ALLOWED_HOSTS = ["*"]
+
+
+def _split_env_list(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+# Allow overriding hosts/origins in production via env vars.
+ALLOWED_HOSTS = _split_env_list(os.getenv("DJANGO_ALLOWED_HOSTS", "")) or ["*"]
+CSRF_TRUSTED_ORIGINS = _split_env_list(os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", ""))
 
 # Applications
 INSTALLED_APPS = [

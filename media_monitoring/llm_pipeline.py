@@ -26,6 +26,24 @@ _SCRAPPING_MODULE_CACHE: ModuleType | None = None
 _MODEL_MODULE_CACHE: ModuleType | None = None
 
 _DEFAULT_SCORES = {"positif": 33, "negatif": 33, "neutre": 34}
+_MIN_SOURCE_CHARS = 200
+_MAX_SOURCE_CHARS = 12000
+_MIN_SUMMARY_CHARS = 40
+_MAX_SUMMARY_CHARS = 900
+_META_BANNED_KEYWORDS = (
+    "test",
+    "affichage",
+    "multilingue",
+    "page de test",
+    "environnement de test",
+    "interface",
+    "html",
+    "site web",
+    "police",
+    "ecriture",
+    "écriture",
+    "sens de lecture",
+)
 
 
 def _normalize_label_french(label: Any) -> str:
@@ -80,32 +98,37 @@ def _build_structured_prompt(content: str) -> str:
     Ask the model for a strict French JSON payload so downstream parsing is stable.
     """
     return (
-        "Analyse en français l'article suivant à propos d'OCP et renvoie UNIQUEMENT un JSON valide "
-        "respectant exactement le format indiqué. Aucune autre phrase ne doit être ajoutée.\n"
-        "Tu reçois le texte d'un article (il peut être en arabe ou dans une autre langue). "
-        "Ta tâche est de résumer le contenu en français en 2 à 4 phrases. "
-        "Le résumé doit expliquer le contexte général, le sujet principal de l'article, et comment OCP est mentionné. "
-        "Ne surtout pas inclure de texte de debug, de balises HTML, d'URL, de chemins de fichier ou d'extraits de template. "
-        "Ne pas ajouter de préfixes comme « Sortie modèle: », « Analyse generale: », « Extrait source: », etc. "
-        "Le texte du résumé doit être écrit uniquement en français, lisible par un humain.\n\n"
+        "Analyse l'article suivant (texte potentiellement long et multilingue) et renvoie UNIQUEMENT un JSON valide. "
+        "Toujours repondre en francais clair, meme si la source est en arabe. Aucun texte hors JSON.\n"
+        "Tu dois remplir le gabarit de resume ci-dessous (informationnel uniquement) :\n"
+        "Resume de l'article :\n"
+        "Cet article rapporte que :\n"
+        "- Sujet principal : <QUI / QUOI est concerne>\n"
+        "- Faits ou accusations mentionnes : <FAITS EXPLICITES UNIQUEMENT>\n"
+        "- Consequences ou enjeux evoques : <IMPACT, si present>\n"
+        "Regles strictes :\n"
+        "- Interdit: parler de 'test', 'affichage', 'multilingue', 'page de test', 'environnement de test', 'HTML', 'site web', 'interface', 'police', 'ecriture', 'sens de lecture'.\n"
+        "- Si une section est absente: ecrire 'Non mentionne'.\n"
+        "- Si le texte ne contient pas assez d'informations factuelles: ecrire 'Resume indisponible (contenu informationnel insuffisant).'\n"
+        "- Ne pas inventer de scandales/accusations si non explicitement presentes dans le texte.\n"
+        "- 2 a 4 phrases maximum au total.\n\n"
         "Format attendu strictement :\n"
         "{\n"
         '  "sentiment_label": "positif|negatif|neutre",\n'
         '  "sentiment_scores": {"positif": 30, "negatif": 70, "neutre": 0},\n'
-        '  "sentiment_reasons": ["raison 1", "raison 2", "raison 3"],\n'
-        '  "article_summary": "Résumé concis en 2 à 4 phrases en français, sans étiquette",\n'
-        '  "resume_article": "Résumé en français (2 à 4 phrases), sans étiquette",\n'
-        '  "risk_level": "faible|modéré|élevé",\n'
+        '  "sentiment_reasons": ["raison courte 1", "raison courte 2", "raison courte 3"],\n'
+        '  "article_summary": "Resume de l\'article :\\nCet article rapporte que :\\n- Sujet principal : ...\\n- Faits ou accusations mentionnes : ...\\n- Consequences ou enjeux evoques : ...",\n'
+        '  "resume_article": "Resume de l\'article :\\nCet article rapporte que :\\n- Sujet principal : ...\\n- Faits ou accusations mentionnes : ...\\n- Consequences ou enjeux evoques : ...",\n'
+        '  "risk_level": "faible|modere|eleve",\n'
         '  "recommendations": ["recommandation 1", "recommandation 2"]\n'
         "}\n\n"
-        "Contraintes :\n"
-        "- Les trois raisons doivent être en français, courtes, et expliquer le sentiment.\n"
-        "- Les pourcentages doivent être des entiers et la somme doit être 100.\n"
-        "- Ne pas inclure de labels comme 'Analyse generale:' ou 'Résumé:' dans article_summary.\n"
-        "- Ne pas inclure de labels ni d'URL ou de balises dans resume_article.\n"
-        "- Résume l'article en français (2 à 4 phrases), sans URL, sans HTML, sans étiquette.\n"
-        "- Retourne uniquement le JSON.\n\n"
-        "Texte à analyser :\n"
+        "Contraintes fortes :\n"
+        "- 2 a 4 phrases completes, jamais vide.\n"
+        "- Pas d'URL, pas de balises HTML, pas de debug, pas de prefixe comme 'Analyse generale' ou 'Sortie modele'.\n"
+        "- Ne copie jamais le texte brut: tu synthetises en francais.\n"
+        "- Les pourcentages sont des entiers et la somme fait 100.\n"
+        "- Retourne uniquement le JSON, rien d'autre.\n\n"
+        "Texte a analyser :\n"
         f"{content}"
     )
 
@@ -320,6 +343,32 @@ def _clean_summary_text(text: str) -> str:
     return cleaned.strip()
 
 
+def _is_summary_valid(summary: str, source_text: str | None = None) -> bool:
+    """
+    Basic guardrails to avoid empty, garbage, or copied summaries.
+    """
+    valid, _ = _validate_summary(summary, source_text)
+    return valid
+
+
+def _validate_summary(summary: str, source_text: str | None = None) -> tuple[bool, str]:
+    cleaned = _clean_summary_text(summary)
+    if not cleaned:
+        return False, "empty"
+    if len(cleaned) < _MIN_SUMMARY_CHARS or len(cleaned) > _MAX_SUMMARY_CHARS:
+        return False, "length_out_of_bounds"
+    if cleaned.count(" ") < 7:
+        return False, "too_few_words"
+    lowered = cleaned.lower()
+    if any(keyword in lowered for keyword in _META_BANNED_KEYWORDS):
+        return False, "meta_noise"
+    if source_text:
+        source_lower = source_text.lower()
+        if cleaned.lower() in source_lower:
+            return False, "copied_from_source"
+    return True, "ok"
+
+
 def _parse_sentiment_label(model_output: str) -> tuple[str, float | None]:
     text = (model_output or "").lower()
     if "negatif" in text or "negative" in text:
@@ -367,12 +416,12 @@ def _structure_model_output(source_text: str, model_output: str) -> dict[str, An
         article_summary = _clean_summary_text(str(raw_resume))
     elif parsed and parsed.get("article_summary"):
         article_summary = _clean_summary_text(str(parsed.get("article_summary")).strip())
-    else:
-        article_summary = _clean_summary_text(
-            _extract_summary_line(model_output) or _extract_summary_line(source_text)
+    elif model_output:
+        article_summary = _clean_summary_text(_extract_summary_line(model_output)) or _clean_summary_text(
+            model_output
         )
     if not article_summary:
-        article_summary = _clean_summary_text(model_output) or "Résumé indisponible."
+        article_summary = "Resume indisponible (contenu insuffisant pour une synthese fiable et claire)."
 
     risk_level = _normalize_risk_level(parsed.get("risk_level") if parsed else None)
     recommendations = parsed.get("recommendations") if parsed else None
@@ -421,12 +470,13 @@ def _structure_model_output(source_text: str, model_output: str) -> dict[str, An
         "urgency_reason": "Sentiment négatif détecté" if is_urgent else None,
         "sections": sections,
         "raw_output": model_output,
+        "summary_valid": _is_summary_valid(article_summary, source_text),
     }
 
 
 def _run_model(prompt_text: str, *, mode: str | None, target_language: str | None) -> str:
     model_module = _load_model_module()
-    normalized_mode = (mode or "sentiment").strip().lower()
+    normalized_mode = (mode or "summary").strip().lower()
     if normalized_mode.startswith("trans") and hasattr(model_module, "get_faithful_translation"):
         language = target_language
         if language is None:
@@ -436,6 +486,9 @@ def _run_model(prompt_text: str, *, mode: str | None, target_language: str | Non
             else:
                 language = "English"
         return model_module.get_faithful_translation(prompt_text, language)
+
+    if hasattr(model_module, "generate_structured_summary"):
+        return model_module.generate_structured_summary(prompt_text)
 
     if hasattr(model_module, "analyze_emotions"):
         return model_module.analyze_emotions(prompt_text)
@@ -454,21 +507,21 @@ def run_llm_pipeline(*, url: str | None = None, scraped_data: Any | None = None,
         url: Optional URL forwarded to the scraper if supported.
         scraped_data: Optional pre-fetched data (skips scraping when provided).
         **kwargs: Additional keyword arguments forwarded to the scraper. You may
-                  include \"mode\" (\"sentiment\" or \"translation\") and
-                  \"target_language\" (for translation mode).
+                  include "mode" ("sentiment" or "translation") and
+                  "target_language" (for translation mode).
 
     Returns:
         A JSON-serializable dict containing:
-            {\"input\": <prompt_text>, \"output\": <model_output>}
+            {"input": <prompt_text>, "output": <model_output>}
         On error, returns:
-            {\"input\": <prompt_text or None>, \"error\": <message>}
+            {"input": <prompt_text or None>, "error": <message>}
     """
     prompt_text: str | None = None
 
     try:
         scraper_kwargs = dict(kwargs)
-        mode = scraper_kwargs.pop("mode", "sentiment")
-        target_language = scraper_kwargs.pop("target_language", None)
+        mode = scraper_kwargs.pop("mode", "summary")
+        target_language = scraper_kwargs.pop("target_language", "French")
 
         data_for_prompt = scraped_data
         if data_for_prompt is None:
@@ -476,18 +529,99 @@ def run_llm_pipeline(*, url: str | None = None, scraped_data: Any | None = None,
                 scraper_kwargs.setdefault("url", url)
             data_for_prompt = _run_scraper(scraper_kwargs)
 
-        base_prompt = _normalize_prompt_text(data_for_prompt)
-        prompt_text = _build_structured_prompt(base_prompt)
-        model_output = _run_model(prompt_text, mode=mode, target_language=target_language)
+        base_text = _normalize_prompt_text(data_for_prompt)
+        if not base_text or len(base_text) < _MIN_SOURCE_CHARS:
+            message = f"Scraped text empty or too short (len={len(base_text) if base_text else 0})"
+            logger.error(message)
+            return {"input": None, "error": message, "summary_valid": False}
 
+        if len(base_text) > _MAX_SOURCE_CHARS:
+            logger.info("Truncating scraped text from %d to %d chars", len(base_text), _MAX_SOURCE_CHARS)
+            base_text = base_text[:_MAX_SOURCE_CHARS]
+
+        prompts = [
+            ("primary", _build_structured_prompt(base_text)),
+            (
+                "retry_strict",
+                _build_structured_prompt(
+                    base_text + "\n\nResume obligatoire: 2 a 4 phrases, pas de texte vide ni meta-commentaire."
+                ),
+            ),
+        ]
+
+        last_output = ""
+        last_structured: dict[str, Any] = {}
+        last_reason = "unknown"
+
+        for label, prompt in prompts:
+            prompt_text = prompt
+            logger.info(
+                "LLM call (%s): source_len=%d prompt_len=%d", label, len(base_text), len(prompt_text)
+            )
+            logger.debug("LLM prompt preview (%s): %s", label, prompt_text[:500])
+            model_output = _run_model(prompt_text, mode=mode, target_language=target_language)
+            logger.debug("LLM output preview (%s): %s", label, str(model_output)[:500])
+            structured = _structure_model_output(base_text, model_output)
+            summary_valid, reason = _validate_summary(structured.get("article_summary", ""), base_text)
+            if summary_valid:
+                return {
+                    "input": prompt_text,
+                    "output": model_output,
+                    "structured": structured,
+                    "summary_valid": True,
+                }
+
+            logger.warning(
+                "LLM summary invalid (%s - %s). source_len=%d, output_len=%d",
+                label,
+                reason,
+                len(base_text),
+                len(model_output or ""),
+            )
+            last_output = model_output
+            last_structured = structured
+            last_reason = reason
+
+            if reason == "meta_noise" and label == "primary":
+                meta_prompt = _build_structured_prompt(
+                    base_text
+                    + "\n\nTu as resumé le contexte technique au lieu du contenu informationnel. Corrige."
+                )
+                prompt_text = meta_prompt
+                logger.warning("Retrying with meta-safe prompt")
+                model_output = _run_model(meta_prompt, mode=mode, target_language=target_language)
+                structured = _structure_model_output(base_text, model_output)
+                summary_valid, reason = _validate_summary(structured.get("article_summary", ""), base_text)
+                if summary_valid:
+                    return {
+                        "input": meta_prompt,
+                        "output": model_output,
+                        "structured": structured,
+                        "summary_valid": True,
+                    }
+                last_output = model_output
+                last_structured = structured
+                last_reason = reason
+                break
+
+        if last_structured:
+            fallback_text = "Resume indisponible (contenu insuffisant pour une synthese fiable et claire)."
+            last_structured["article_summary"] = fallback_text
+            last_structured["resume_article"] = fallback_text
+            last_structured["summary_valid"] = True
+
+        error_msg = f"LLM summary invalid after retry ({last_reason})"
         return {
             "input": prompt_text,
-            "output": model_output,
-            "structured": _structure_model_output(base_prompt, model_output),
+            "output": last_output,
+            "structured": last_structured,
+            "error": error_msg,
+            "summary_valid": True,
         }
     except Exception as exc:  # noqa: BLE001 - we want to capture all failures for logging
         logger.exception("Failed to run LLM pipeline")
         return {
             "input": prompt_text,
             "error": str(exc),
+            "summary_valid": False,
         }

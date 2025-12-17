@@ -211,6 +211,11 @@ def _clean_summary_text(text: str) -> str:
     return cleaned.strip()
 
 
+def _is_summary_valid(summary: str) -> bool:
+    cleaned = _clean_summary_text(summary)
+    return bool(cleaned and len(cleaned) >= 40 and cleaned.count(" ") >= 7)
+
+
 def _aggregate_scores(mentions: List[Dict[str, Any]]) -> Dict[str, int]:
     totals = {"positif": 0, "negatif": 0, "neutre": 0}
     if not mentions:
@@ -305,8 +310,8 @@ def build_ocp_report_data(source_id: Optional[int] = None) -> Dict[str, Any]:
             or _clean_summary_text(llm_data.get("article_summary"))
             or _clean_summary_text(llm_data.get("summary"))
         )
-        if not article_summary:
-            article_summary = "Résumé indisponible."
+        if not _is_summary_valid(article_summary):
+            raise ValueError(f"Résumé manquant ou invalide pour la mention {mention.id}")
         reasons = llm_data.get("sentiment_reasons")
         reasons = [str(r).strip() for r in reasons] if isinstance(reasons, list) else []
         reasons = [r for r in reasons if r][:3]

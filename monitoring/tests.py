@@ -68,7 +68,7 @@ class ReportPdfContentTests(TestCase):
             "sentiment_label": "negatif",
             "sentiment_scores": {"positif": 5, "neutre": 15, "negatif": 80},
             "sentiment_reasons": ["Contenu diffamatoire.", "Termes très négatifs.", "Concerne OCP directement."],
-            "article_summary": "Résumé bilingue sans étiquette.",
+            "article_summary": "Résumé bilingue sans étiquette. Cet article décrit OCP et son contexte en français malgré la source arabe.",
             "risk_level": "élevé",
             "recommendations": ["Surveiller la source."],
         }
@@ -112,11 +112,5 @@ class ReportPdfContentTests(TestCase):
             raw_metadata={"llm": {"structured": structured}},
         )
 
-        report_data = build_ocp_report_data()
-        response = render_report_pdf(report_data)
-
-        text = self._normalize_text(self._extract_pdf_text(response))
-        self.assertIn("sentiment global", text)
-        self.assertIn("neutre", text)
-        self.assertIn("aucune raison disponible", text)
-        self.assertIn("donnees indisponibles", text)
+        with self.assertRaises(ValueError):
+            build_ocp_report_data()

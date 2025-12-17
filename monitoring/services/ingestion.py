@@ -194,6 +194,9 @@ def _store_scrape_result(scrape_result: Dict[str, Any], company: Company) -> Tup
     if structured is None:
         structured = {}
     model_output = llm_result.get("output") if isinstance(llm_result, dict) else ""
+    if not llm_result.get("summary_valid"):
+        error_detail = llm_result.get("error") if isinstance(llm_result, dict) else "Résumé manquant"
+        raise ValueError(f"LLM summary invalid for {url}: {error_detail}")
     sentiment_label, sentiment_score, is_urgent, urgency_reason = _parse_sentiment_from_structured(
         structured or {}, model_output or ""
     )
@@ -331,7 +334,20 @@ def ingest_latest_articles(
             )
             continue
 
-        mention, created = _store_scrape_result(scrape_result, company)
+        try:
+            mention, created = _store_scrape_result(scrape_result, company)
+        except ValueError as exc:
+            summary["errors"] += 1
+            summary["results"].append(
+                {
+                    "url": scrape_result.get("url"),
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
+            logger.error("Failed to store mention for %s: %s", scrape_result.get("url"), exc)
+            continue
+
         logger.info(
             "Stored mention for %s (id=%s, created=%s)",
             scrape_result.get("url"),

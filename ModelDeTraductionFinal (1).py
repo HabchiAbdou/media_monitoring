@@ -100,6 +100,20 @@ def get_faithful_translation(text: str, target_language: str) -> str:
     )
 
 
+def generate_structured_summary(prompt: str) -> str:
+    """
+    Forward a structured summarization prompt and return the raw LLM output.
+    """
+    messages = [
+        {
+            "role": "system",
+            "content": "Tu reponds uniquement avec un JSON valide en francais. Aucun commentaire hors JSON.",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    return _call_cerebras(messages=messages, max_tokens=900, temperature=0.2)
+
+
 # ----------------------------------------------------------------------
 # Sentiment analysis
 # ----------------------------------------------------------------------

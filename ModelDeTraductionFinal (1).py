@@ -17,7 +17,7 @@ HAS_DARIJA_ASSISTANT = False
 
 # ----------------------------------------------------------------------
 # Configuration
-DEFAULT_CEREBRAS_API_KEY = "csk-k4k93rh5rp3et5ctfdx46cp5v8x3x8nfyr8tnpf4yrmk3ycd"
+DEFAULT_CEREBRAS_API_KEY = "Place your API key here"
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY", DEFAULT_CEREBRAS_API_KEY)
 CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "gpt-oss-120b")
 
